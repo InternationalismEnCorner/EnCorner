@@ -2,7 +2,7 @@
 
 [时事追踪 || 年轻、愤怒、厌女和男性：韩国大选内幕——“非自愿独身者”的胜利](https://internationalismencorner.github.io/EnCorner/html/时事追踪__年轻、愤怒、厌女和男性：韩国大选内幕——“非自愿独身者”的胜利.html)
 
-- [国际女性日特辑 || Audre Lorde: 女性重新定义“差异”](https://internationalismencorner.github.io/EnCorner/html/国际女性日特辑__AudreLorde_女性重新定义“差异”.html)<br>
+[国际女性日特辑  Audre Lorde: 女性重新定义“差异”](https://internationalismencorner.github.io/EnCorner/html/国际女性日特辑__AudreLorde_女性重新定义“差异”.html)
 
 - [转载 || 对大卫·哈维的回应](https://internationalismencorner.github.io/EnCorner/html/转载__对大卫·哈维的回应.html)<br>
 
