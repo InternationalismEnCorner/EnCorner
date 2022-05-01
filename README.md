@@ -1,4 +1,20 @@
-#【国际英语角】公众号（截止2022/3/19）
+#【国际英语角】公众号（截止2022/5/1）
+<br/>
+
+- [国际劳动节特辑 || 片单·We Need to Take Control of Our Lives Again](https://internationalismencorner.github.io/EnCorner/html/国际劳动节特辑__片单·WeNeedtoTakeControlofOurLivesAgain.html)
+
+<br/>- [四月特辑 || 新阿尔及利亚革命与黑命攸关](https://internationalismencorner.github.io/EnCorner/html/四月特辑__新阿尔及利亚革命与黑命攸关.html)
+
+<br/>- [四月特辑 || Covid-19与巴西的现实：贫民窟在抗击大流行中的作用](https://internationalismencorner.github.io/EnCorner/html/四月特辑__Covid-19与巴西的现实：贫民窟在抗击大流行中的作用.html)
+
+<br/>- [四月特辑 || 请用母语发声——一封写给第三世界女性作家的信](https://internationalismencorner.github.io/EnCorner/html/四月特辑__请用母语发声——一封写给第三世界女性作家的信.html)
+
+<br/>- [四月特辑 || 成为黑人：危机时刻的强制权力、国家和种族主义](https://internationalismencorner.github.io/EnCorner/html/四月特辑__成为黑人：危机时刻的强制权力、国家和种族主义.html)
+
+<br/>- [事实核查 || “布查惨案”是一场“骗局”吗？](https://internationalismencorner.github.io/EnCorner/html/事实核查__“布查惨案”是一场“骗局”吗？.html)
+
+<br/>- [四月特辑 || 对谈：萨帕塔主义，团结和自治](https://internationalismencorner.github.io/EnCorner/html/四月特辑__对谈：萨帕塔主义，团结和自治.html)
+
 <br/>
 
 - [三月特辑 || 女性主义东方学和东方学马克思主义（1988）](https://internationalismencorner.github.io/EnCorner/html/三月特辑__女性主义东方学和东方学马克思主义（1988）.html)
