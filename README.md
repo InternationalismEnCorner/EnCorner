@@ -1,6 +1,24 @@
 ### 【国际英语角】公众号（截止2022/5/1）
 <br/>
 
+- [5.17特辑 || 性别加速主义宣言](https://internationalismencorner.github.io/EnCorner/html/5.17特辑__性别加速主义宣言.html)
+<br/>
+
+- [五月特辑 || 柳叶刀社论：为什么我们必须捍卫Roe v. Wade 案的裁定](https://internationalismencorner.github.io/EnCorner/html/五月特辑__柳叶刀社论：为什么我们必须捍卫Roev.Wade案的裁定.html)
+<br/>
+
+- [辛波丝卡：时代的孩子](https://internationalismencorner.github.io/EnCorner/html/辛波丝卡：时代的孩子.html)
+<br/>
+
+- [五月特辑 || 2019年的黎巴嫩和伊拉克](https://internationalismencorner.github.io/EnCorner/html/五月特辑__2019年的黎巴嫩和伊拉克.html)
+<br/>
+
+- [转载 || 阿吉兹·阿罕默德:《共产党宣言》与“世界文学”](https://internationalismencorner.github.io/EnCorner/html/转载__阿吉兹·阿罕默德_《共产党宣言》与“世界文学”.html)
+<br/>
+
+- [青年节·转载 || 论学生生活的贫困（不完整译稿）](https://internationalismencorner.github.io/EnCorner/html/青年节·转载__论学生生活的贫困（不完整译稿）.html)
+<br/>
+
 - [国际劳动节特辑 || 片单·We Need to Take Control of Our Lives Again](https://internationalismencorner.github.io/EnCorner/html/国际劳动节特辑__片单·WeNeedtoTakeControlofOurLivesAgain.html)
 <br/>
 
