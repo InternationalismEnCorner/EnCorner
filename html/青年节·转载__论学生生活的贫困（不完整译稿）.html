@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html class="">
+<head>
+<meta content="true" name="wechat-enable-text-zoom-em"/>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+<meta content="IE=edge" http-equiv="X-UA-Compatible"/>
+<meta content="light dark" name="color-scheme"/>
+<meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0,viewport-fit=cover" name="viewport"/>
+<link href="http://res.wx.qq.com/a/wx_fed/assets/res/NTI4MWU5.ico" rel="shortcut icon" reportloaderror="" type="image/x-icon"/>
+<link color="#4C4C4C" href="http://res.wx.qq.com/a/wx_fed/assets/res/MjliNWVm.svg" rel="mask-icon" reportloaderror=""/>
+<link href="http://res.wx.qq.com/a/wx_fed/assets/res/OTE0YTAw.png" rel="apple-touch-icon-precomposed" reportloaderror=""/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="black" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="telephone=no" name="format-detection"/>
+<script nonce="187699337" reportloaderror="">try{document.getElementsByTagName('html').item(0).style.webkitTextSizeAdjust=JSON.parse(window.__wxWebEnv.getEnv()).fontScale+'%'}catch(e){}</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+  window.logs = { pagetime: {} };
+  window.logs.pagetime['html_begin'] = (+new Date());
+  window.LANG = "zh_CN"; // 页面语言 zh_CN en_US
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+/**
+ * 于2022-02-21重构vite
+ * 仅保留原有moon.js中上报相关的部分
+ * @author baakqiu
+ * @date 2022-02-21
+ */
+
+var WX_BJ_REPORT = window.WX_BJ_REPORT || {};
+(function(_) {
+  if (_.BadJs) {
+    return;
+  }
+  //onerror上报名 
+  var BADJS_WIN_ERR = 'BadjsWindowError';
+  var extend = function(source, destination) {
+    for (var property in destination) {
+      source[property] = destination[property]
+    }
+    return source
+  }
+  /*
+    出错上报字段:mid name key  msg  stack file col line uin
+    mid 模块名
+    name 监控名
+    key 特征值
+    msg 额外信息
+  */
+  _.BadJs = {
+    uin: 0,
+    mid: "",
+    view: "wap",
+    _cache: {}, //上报_cache 同一mid name key 只会上报一次
+    _info: {}, // 打点记录 会写入msg帮助定位
+    _hookCallback: null,
+    ignorePath: true,
+    throw: function(e, extData) {
+      this.onError(e, extData);
+      throw e;
+    },
+    //接收异常并上报处理 如果有额外信息可以放在第二个参数_data中
+    // _data 只能覆盖上报协议的字段mid （name,key 不建议通过data覆盖） msg  stack file col line uin
+    onError: function(e, extData) {
+      try {
+        //标记已执行的throw
+        if (e.BADJS_EXCUTED == true) {
+          return;
+        }
+        e.BADJS_EXCUTED = true;
+        var data = errToData(e);
+        data.uin = this.uin;
+        data.mid = this.mid;
+        data.view = this.view;
+        data.cmdb_module = 'mmbizwap';
+        //data.msg = msg || data.msg;
+        if (!!extData) {
+          data = extend(data, extData);
+        }
+        //如果cid存在 将cid合并到key
+        if (data.cid) {
+          data.key = "[" + data.cid + "]:" + data.key;
+        }
+        
+        if (data._info) {
+          if (Object.prototype.toString.call(data._info) == "[object Object]") {
+            data.msg += " || info:" + JSON.stringify(data._info);
+          } else if (Object.prototype.toString.call(data._info) == "[object String]") {
+            data.msg += " || info:" + data._info;
+          } else {
+            data.msg += " || info:" + data._info;
+          }
+        }
+        if (typeof this._hookCallback == "function") {
+          if (this._hookCallback(data) === false) {
+            return
+          }
+        }
+        this._send(data);
+        return _.BadJs;
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    winErr: function(event) {
+      if (event.error && event.error.BADJS_EXCUTED) {
+        return;
+      }
+      if (event.type === 'unhandledrejection') {
+        _.BadJs.onError(createError(event.type, event.reason, "", "", "", event.reason));
+      }else{
+        _.BadJs.onError(createError(BADJS_WIN_ERR, event.message, event.filename, event.lineno, event.colno, event.error));
+      }
+    },
+    init: function(uin, mid, view) {
+      this.uin = uin || this.uin;
+      this.mid = mid || this.mid;
+      this.view = view || this.view;
+      return _.BadJs;
+    },
+    //钩子函数
+    hook: function(fn) {
+      this._hookCallback = fn;
+      return _.BadJs;
+    },
+    _send: function(data) {
+      //hack uin mid
+      if (!data.mid) {
+        if (typeof window.PAGE_MID !== 'undefined' && window.PAGE_MID) {
+          data.mid = window.PAGE_MID;
+        } else {
+          return;
+        }
+      }
+      if (!data.uin) {
+        data.uin = window.user_uin || 0;
+      }
+      // 发送要去重 
+      var flag = [data.mid, data.name, data.key].join("|");
+      if (this._cache && this._cache[flag]) {
+        return
+      } else {
+        this._cache && (this._cache[flag] = true);
+        this._xhr(data);
+      }
+      return _.BadJs;
+    },
+    _xhr: function(data) {
+      //console.log(data);
+      var xmlobj;
+      if (window.ActiveXObject) {
+        try {
+          xmlobj = new ActiveXObject("Msxml2.XMLHTTP");
+        } catch (e) {
+          try {
+            xmlobj = new ActiveXObject("Microsoft.XMLHTTP");
+          } catch (E) {
+            xmlobj = false;
+          }
+        }
+      } else if (window.XMLHttpRequest) {
+        xmlobj = new XMLHttpRequest();
+      }
+      var param = "";
+      for (var key in data) {
+        if (key && data[key]) {
+          param += [key, "=", encodeURIComponent(data[key]), "&"].join("");
+        }
+      }
+      if (xmlobj && typeof xmlobj.open == "function") {
+        xmlobj.open("POST", "https://badjs.weixinbridge.com/report", true);
+        xmlobj.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+        xmlobj.onreadystatechange = function(status) {};
+        xmlobj.send(param.slice(0, -1));
+      } else {
+        var img = new Image();
+        img.src = "https://badjs.weixinbridge.com/report?" + param;
+      }
+    },
+    // key是特征值 默认上报msg就是key，也可以主动传msg包含更多上报信息 
+    report: function(name, key, data) {
+      this.onError(createError(name, key), data);
+      return this;
+    },
+    // 打点标记
+    mark: function(info) {
+      this._info = extend(this._info, info);
+    },
+    nocache: function() {
+      this._cache = false;
+      return _.BadJs;
+    }
+  }
+  function createError(name, msg, url, line, col, error) {
+    return {
+      name: name || "",
+      message: msg || "",
+      file: url || "",
+      line: line || "",
+      col: col || "",
+      stack: (error && error.stack) || "",
+    }
+  }
+  //将异常错误转换成上报协议支持的字段
+  /*
+  * 先取e对象上的file line col等字段
+  * 再解析e.statck
+  * name 错误大类 默认取badjs_try_err|badjs_win_err
+  * key  错误标识 e.message
+  * msg  错误信息 e.message
+  * stack 错误堆栈 e.stack
+  * file 错误发生的文件
+  * line 行
+  * col 列
+  * client_version
+  */
+  function errToData(e) {
+    var _stack = parseStack(e);
+    return {
+      name: e.name,
+      key: e.message,
+      msg: e.message,
+      stack: _stack.info,
+      file: _stack.file,
+      line: _stack.line,
+      col: _stack.col,
+      client_version: "",
+      _info: e._info
+    }
+  }
+  function parseStack(e) {
+    e._info = e._info || ""; // 当前错误的额外信息 最终上报到info
+    var stack = e.stack || "";
+    var _stack = {
+      info: stack,
+      file: e.file || "",
+      line: e.line || "",
+      col: e.col || "",
+    };
+    if (_stack.file == "") {
+      // 提取file line col
+      var stackArr = stack.split(/\bat\b/);
+      if (stackArr && stackArr[1]) {
+        var match = /(https?:\/\/[^\n]+)\:(\d+)\:(\d+)/.exec(stackArr[1]);
+        if (match) {
+          //若stack提取的file line col跟e中的属性不一致，以stack为准 但在e._info中记录原始数据
+          if (match[1] && match[1] != _stack.file) {
+            _stack.file && (e._info += " [file: " + _stack.file + " ]");
+            _stack.file = match[1];
+          }
+          if (match[2] && match[2] != _stack.line) {
+            _stack.line && (e._info += " [line: " + _stack.line + " ]");
+            _stack.line = match[2];
+          }
+          if (match[3] && match[3] != _stack.col) {
+            _stack.col && (e._info += " [col: " + _stack.col + " ]");
+            _stack.col = match[3];
+          }
+        }
+      }
+    }
+    //替换堆栈中的文件路径 combojs太长
+    if (_stack && _stack.file && _stack.file.length > 0) {
+      _stack.info = _stack.info.replace(new RegExp(_stack.file.split("?")[0], "gi"), "__FILE__")
+    }
+    //堆栈路径只保存文件名
+    if (_.BadJs.ignorePath) {
+      _stack.info = _stack.info.replace(/http(s)?\:[^:\n]*\//ig, "").replace(/\n/gi, "");
+    }
+    return _stack;
+  }
+  //兜底方法
+  window.addEventListener && window.addEventListener('error', _.BadJs.winErr);
+  window.addEventListener && window.addEventListener('unhandledrejection', _.BadJs.winErr);
+  return _.BadJs;
+})(WX_BJ_REPORT);
+window.WX_BJ_REPORT = WX_BJ_REPORT;
+/**
+ * 兼容wap项目的简单CMD管理
+ * 所有wap项目必须包含此文件才可以执行成功
+ * 暴露在全局的变量仍然以seajs为命名空间，跟web项目保持一致
+ * 支持的API是seajs.use，以及require define
+ * @author raphealguo
+ * @date 20140326
+ */
+function __moonf__() {
+  if (window.__moonhasinit) return;
+  window.__moonhasinit = true;
+  window.__moonclientlog = []; // moon中存到客户端日志里面的内容，最终写入到客户端的地点在fereport.js
+  if (typeof JSON != "object") { //针对IE7的hack
+    window.JSON = {
+      stringify: function() { return ""; },
+      parse: function() { return {}; }
+    };
+  }
+  var moon_init = function() {
+    // 前端的@cunjinli
+    (function() {
+      // @cunjinli 重写alert函数, moonsafe监控
+      var _alert = window.alert;
+      window.__alertList = [];
+      window.alert = function(msg) {
+        _alert(msg);
+        window.__alertList.push(msg);
+      };
+    })();
+    /**
+     * moonsafe @cunjinli 加在这里
+     */
+    (function() {
+      // if (window.__nonce_str) {
+      //   var __old_createElement = document.createElement;
+      //   document.createElement = function(tagName) {
+      //     var node = __old_createElement.apply(this, arguments);
+      //     if (typeof tagName == 'object') {
+      //       tagName = tagName.toString();
+      //     }
+      //     if (typeof tagName == 'string' && tagName.toLowerCase() == 'script') {
+      //       node.setAttribute("nonce", window.__nonce_str);
+      //     }
+      //     return node;
+      //   }
+      // }
+      if (window.addEventListener && window.__DEBUGINFO && Math.random() < 0.01) {
+        window.addEventListener("load", function() {
+          var node = document.createElement('script');
+          node.src = __DEBUGINFO.safe_js;
+          node.type = 'text/javascript';
+          node.async = true;
+          var head = document.head || (document.getElementsByTagName("head")[0]);
+          head.appendChild(node);
+        });
+      }
+    })();
+    /**
+     * mooncatch
+     * 对各种异步回调都使用try catch错误上报
+     * @radeonwu raphealguo
+     */
+    (function() {
+      var inWx = (/MicroMessenger/i).test(navigator.userAgent);
+      var inMp = (/MPAPP/i).test(navigator.userAgent);
+      var _idkey = 121261; //上报的idkey 添加默认上报值
+      var _startKey; //开始的key
+      var _limit; //上报的key的长度
+      var _badjsId;
+      var _reportOpt; //上报的额外信息
+      var _extInfo; //附加的预留字段，如网络采样率采样率network_rate， 总体上报率rate
+      var MOON_LISTENER_ERROR_KEY_OFFSET = 2; //addEventListener上报时的偏移量为2
+      var MOON_AJAX_NETWORK_OFFSET = 4; //network错误时的上报偏移量为4，这里在ajax.js中上报，这里需要加入采样率
+      var MOON_ASYNC_ERROR_KEY_OFFSET = 9; //setTimeout和setInterval上报时的偏移量为9
+      var MOON_LOCALSTORAGE_ERROR_KEY_OFFSET = 10; //localstorage.setItem失败时的偏移量为10
+      window.__initCatch = function(opt) {
+        _idkey = opt.idkey;
+        _startKey = opt.startKey || 0;
+        _limit = opt.limit;
+        _badjsId = opt.badjsId;
+        _reportOpt = opt.reportOpt || "";
+        _extInfo = opt.extInfo || {};
+        _extInfo.rate = _extInfo.rate || 0.5;
+      }
+      //暴露的上报函数，供core.js和ajax.js上报错误使用，array = [{offset:MOON_JSAPI_KEY_OFFSET, log:"ready", e:e}]
+      window.__moon_report = function(array, rate_opt) {
+        var isAcrossOrigin = false;
+        var href = '';
+        try {
+          href = top.location.href;
+        } catch (e) {
+          isAcrossOrigin = true;
+        }
+        var rate = 0.5;
+        if (!!_extInfo && !!_extInfo.rate) {
+          rate = _extInfo.rate;
+        }
+        if (!!rate_opt && (typeof rate_opt == 'number')) {
+          rate = rate_opt;
+        }
+        if (
+          (!(/mp\.weixin\.qq\.com/).test(location.href) && !(/payapp\.weixin\.qq\.com/).test(location.href)) ||
+          Math.random() > rate ||
+          !(inWx || inMp) ||
+          (top != window && !isAcrossOrigin && !(/mp\.weixin\.qq\.com/).test(href))
+        ) {
+          //return ;
+        }
+        if (isObject(array))
+          array = [array];
+        if (!isArray(array) || _idkey == '')
+          return;
+        var data = "";
+        var log = []; //存放array中每个对象关联的log
+        var key = []; //存放array中每个上报的key
+        var val = []; //存放array中每个上报的value
+        var idkey = [];
+        //如果这里没有opt.limit，直接上报到startKey
+        if (typeof _limit != "number") {
+          _limit = Infinity;
+        }
+        for (var i = 0; i < array.length; i++) {
+          var item = array[i] || {};
+          if (item.offset > _limit) continue; //上报的偏移量超过limit
+          if (typeof item.offset != "number") continue;
+          if (item.offset == MOON_AJAX_NETWORK_OFFSET && !!_extInfo && !!_extInfo.network_rate && Math.random() >= _extInfo.network_rate) {
+            continue;
+          }
+          //log[i] = item.log || "";
+          var k = _limit == Infinity ? _startKey : (_startKey + item.offset);
+          log[i] = (("[moon]" + _idkey + "_" + k + ";") + item.log + ";" + getErrorMessage(item.e || {})) || "";
+          key[i] = k;
+          val[i] = 1;
+        }
+        for (var j = 0; j < key.length; j++) {
+          idkey[j] = _idkey + "_" + key[j] + "_" + val[j];
+          data = data + "&log" + j + "=" + log[j];
+        }
+        if (idkey.length > 0) {
+          // sendReport("idkey=" + idkey.join(";") + "&lc=" + log.length + data);
+          sendReport("POST", location.protocol + '//mp.weixin.qq.com/mp/jsmonitor?', "idkey=" + idkey.join(";") + "&r=" + Math.random() + "&lc=" + log.length + data);
+          // 把图文消息的错误上报一份到badjs，只支持get请求
+          // 这里由于量比较大，把badjs的内层怼爆了，这里加多一个采样，并且去掉用户的信息
+          var rate = 1;
+          if (_extInfo && _extInfo.badjs_rate) { // 初始化时的badjs采样率
+            rate = _extInfo.badjs_rate;
+          }
+          if (Math.random() < rate) {
+            data = data.replace(/uin\:(.)*\|biz\:(.)*\|mid\:(.)*\|idx\:(.)*\|sn\:(.)*\|/, '');
+            if(!!_badjsId){
+              var _img = new Image();
+              var _src = 'https://badjs.weixinbridge.com/badjs?id=' + _badjsId + '&level=4&from=' + encodeURIComponent(location.host) + '&msg=' + encodeURIComponent(data);
+              _img.src = _src.slice(0, 1024);
+            }
+            // badjs同时报一份到新监控 
+            if (typeof WX_BJ_REPORT != "undefined" && WX_BJ_REPORT.BadJs) {
+              for (var i = 0; i < array.length; i++) {
+                var item = array[i] || {};
+                if (item.e) {
+                  WX_BJ_REPORT.BadJs.onError(item.e,{_info:item.log});
+                } else {
+                  var name = /[^:;]*/.exec(item.log)[0];
+                  WX_BJ_REPORT.BadJs.report(name, item.log, { mid: "mmbizwap:Monitor" });
+                }
+              }
+            }
+          } else {
+            //虽然采样没有执行 但实际是有被BadJs.onError，置位一下
+            for (var i = 0; i < array.length; i++) {
+              var item = array[i] || {};
+              if (item.e) {
+                item.e.BADJS_EXCUTED = true;
+              }
+            }
+          }
+        }
+      }
+      function isArray(obj) { //判断输入是否为数组
+        return Object.prototype.toString.call(obj) === '[object Array]';
+      }
+      function isObject(obj) { //判断输入是否为对象
+        return Object.prototype.toString.call(obj) === '[object Object]';
+      }
+      function getErrorMessage(e) {
+        var stack = e.stack + ' ' + e.toString() || ""; //错误堆栈信息
+        try {
+          //先取出res域名
+          if (!window.testenv_reshost) {
+            stack = stack.replace(/http(s)?:\/\/res\.wx\.qq\.com/g, "");
+          } else {
+            var host = 'http(s)?://' + window.testenv_reshost;
+            var reg = new RegExp(host, 'g');
+            stack = stack.replace(reg, "");
+          }
+          //提取最后一个.js前边的
+          var reg = /\/([^.]+)\/js\/(\S+?)\.js(\,|:)?/g;
+          while (reg.test(stack)) {
+            // stack = stack.replace(reg, "3"); 解决$问题
+            stack = stack.replace(reg, function(a, b, c, d, e, f) {
+              return c + d
+            });
+          }
+        } catch (e) {
+          stack = e.stack ? e.stack : "" //错误堆栈信息
+        }
+        var ret = [];
+        for (o in _reportOpt) {
+          if (_reportOpt.hasOwnProperty(o)) {
+            ret.push(o + ":" + _reportOpt[o]);
+          }
+        }
+        ret.push("STK:" + stack.replace(/\n/g, ""));
+        return ret.join("|");
+      }
+      function sendReport(type, url, data) { //post方法用于提交数据
+        if (!/^mp\.weixin\.qq\.com$/.test(location.hostname)) { //非MP域名使用 img方式上报
+          var tmp = [];
+          data = data.replace(location.href, (location.origin || "") + (location.pathname || "")).replace("#wechat_redirect", "").replace("#rd", "").split("&");
+          for (var i = 0, il = data.length; i < il; i++) {
+            var a = data[i].split("=");
+            if (!!a[0] && !!a[1]) {
+              tmp.push(a[0] + "=" + encodeURIComponent(a[1]));
+            }
+          }
+          var _img = new window.Image();
+          _img.src = (url + tmp.join("&")).substr(0, 1024);
+          return;
+        }
+        var xmlobj; //定义XMLHttpRequest对象  
+        if (window.ActiveXObject) { //如果当前浏览器支持Active Xobject，则创建ActiveXObject对象    
+          try {
+            xmlobj = new ActiveXObject("Msxml2.XMLHTTP");
+          } catch (e) {
+            try {
+              xmlobj = new ActiveXObject("Microsoft.XMLHTTP");
+            } catch (E) {
+              xmlobj = false;
+            }
+          }
+        } else if (window.XMLHttpRequest) { //如果当前浏览器支持XMLHttpRequest，则创建XMLHttpRequest对象  
+          xmlobj = new XMLHttpRequest();
+        }
+        if (!xmlobj) return;
+        //xmlobj.open("POST", location.protocol + "//mp.weixin.qq.com/mp/jsmonitor?", true);         
+        xmlobj.open(type, url, true);
+        xmlobj.setRequestHeader("cache-control", "no-cache");
+        xmlobj.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8"); //设置请求头信息              
+        xmlobj.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+        xmlobj.send(data); //发送数据  
+      }
+      function catTimeout(foo) {
+        return function(cb, timeout) {
+          if (typeof cb === 'string') {
+            try {
+              cb = new Function(cb);
+            } catch (err) {
+              throw err;
+            }
+          }
+          var args = [].slice.call(arguments, 2);
+          var _cb = cb;
+          cb = function() {
+            try {
+              return _cb.apply(this, (args.length && args) || arguments);
+            } catch (error) {
+              if (error.stack && console && console.error) { //chrome有bug，特定情况下看不到throw的error，这里console.error下，防止给调试留坑
+                console.error("[TryCatch]" + error.stack);
+              }
+              if (!!_idkey && !!window.__moon_report) { //没有初始化_key，直接throw error
+                //sendReport(error);
+                window.__moon_report([{ offset: MOON_ASYNC_ERROR_KEY_OFFSET, log: "timeout_error;host:" + location.host, e: error }]);
+                //breakOnError(timeoutkey);
+              }
+              throw error;
+            }
+          }
+          return foo(cb, timeout);
+        };
+      };
+      window.setTimeout = catTimeout(window.setTimeout);
+      window.setInterval = catTimeout(window.setInterval);
+      if (Math.random() < 0.01 && !!window.Document && !!window.HTMLElement) {
+        var cb_map = {};
+        var moon_lid = 0;
+        function catAddListener(foo) {
+          return function(type, cb, useCapture) {
+            if (typeof useCapture === "undefined") {
+              var useCapture = false;
+            }
+            var that = this;
+            var _cb = cb || function() {};
+            cb = function() {
+              try {
+                //arguments[0].currentTarget.setAttribute("data-moon_lid") = moon_lid;
+                //_cb.moon_lid = moon_lid;
+                return _cb.apply(that, arguments);
+              } catch (error) {
+                if (error.stack && console && console.error) { //chrome有bug，特定情况下看不到throw的error，这里console.error下，防止给调试留坑
+                  console.error("[TryCatch]" + error.stack);
+                }
+                if (!!_idkey && !!window.__moon_report) { //没有初始化_key，直接throw error
+                  window.__moon_report([{ offset: MOON_LISTENER_ERROR_KEY_OFFSET, log: "listener_error;type:" + type + ";host:" + location.host, e: error }]);
+                  //breakOnError(timeoutkey);
+                }
+                throw error;
+              }
+            }
+            _cb.moon_lid = moon_lid;
+            cb_map[moon_lid] = cb;
+            moon_lid++;
+            return foo.call(that, type, cb, useCapture);
+          }
+        }
+        function catRemoveListener(foo) {
+          return function(type, cb, useCapture) {
+            if (typeof useCapture === "undefined") {
+              var useCapture = false;
+            }
+            var that = this;
+            cb = cb_map[cb.moon_lid];
+            return foo.call(that, type, cb, useCapture);
+          }
+        }
+        Document.prototype.addEventListener = catAddListener(Document.prototype.addEventListener);
+        Document.prototype.removeEventListener = catRemoveListener(Document.prototype.removeEventListener);
+        HTMLElement.prototype.addEventListener = catAddListener(HTMLElement.prototype.addEventListener);
+        HTMLElement.prototype.removeEventListener = catRemoveListener(HTMLElement.prototype.removeEventListener);
+      }
+      //alert("setItem begin");
+      //window.localStorage.setItem = function(){a=c;}//故意
+      var ua = window.navigator.userAgent;
+      if ((/ip(hone|ad|od)/i.test(ua) || /android/i.test(ua)) && !/windows phone/i.test(ua) && !!window.localStorage && !!window.localStorage.setItem) {
+        var _setItem = window.localStorage.setItem;
+        var count = 0;
+        window.localStorage.setItem = function(k, v) {
+          if (count >= 10) { //一直失败 不要再继续试了，可能类似safari无痕模式 不允许写入了
+            return;
+          }
+          try {
+            _setItem.call(window.localStorage, k, v);
+          } catch (error) {
+            //alert(error);
+            if (error.stack && console && console.error) { //chrome有bug，特定情况下看不到throw的error，这里console.error下，防止给调试留坑
+              console.error("[TryCatch]" + error.stack);
+            }
+            window.__moon_report([{ offset: MOON_LOCALSTORAGE_ERROR_KEY_OFFSET, log: "localstorage_error;" + error.toString(), e: error }]);
+            count++;
+            if (count >= 3 && !!window.moon && window.moon.clear) {
+              // 可能爆满 清理一下localstorage
+              moon.clear();
+            }
+          }
+        }
+        //alert("setItem end");
+      }
+    })();
+    // 后面的@cunjinli
+  };
+  moon_init();
+  //由于moon异步化，所以有些逻辑需要moon加载完之后才执行的 放到全局callback函数__moon_initcallback里边
+  (!!window.__moon_initcallback) && (window.__moon_initcallback());
+}
+// 为适应inline逻辑，有map时才主动自执行 @zhikaimai
+// if (typeof window.moon_map == 'object') {
+//     __moonf__();
+// }
+__moonf__();
+
+if (!!window.addEventListener){
+  window.addEventListener("load",function(){
+    var MOON_SCRIPT_ERROR_KEY_OFFSET = 1; //script上报时的偏移量为1
+    var ns = document.querySelectorAll("[reportloaderror]");
+    for(var ni=0,nl=ns.length;ni<nl;ni++)
+      ns[ni].onerror=function(ev){
+        window.__moon_report([{ offset: MOON_SCRIPT_ERROR_KEY_OFFSET, log: "load_script_error:" + ev.target.src, e: new Error('LoadResError') }], 1);
+        window.WX_BJ_REPORT.BadJs.report("load_script_error", ev.target.src, { mid: "mmbizwap:Monitor" });
+      };
+  });
+}
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+  var testRdmUrl = '//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/pic/common/avatar_default5df5b8.svg';
+  // 如果是资源是mp域名，则是rdm环境
+  if (testRdmUrl.indexOf('mp.weixin.qq.com') > 0) {
+    window.__allowLoadResFromMp = true; // 允许从mp.weixin.qq.com加载js资源
+    window.__loadAllResFromMp = true; // 所有js资源都从mp域名加载
+
+    // 给底色加个原谅绿
+    // document.documentElement.style.boxShadow = 'inset 0 0 15px green';
+  }
+</script>
+<meta content="论学生在经济、政治、心理、性和特别是思想方面的贫困" name="description"/>
+<meta content="牛头角酒馆" name="author"/>
+<meta content="青年节·转载 || 论学生生活的贫困（不完整译稿）" property="og:title"/>
+<meta content="http://mp.weixin.qq.com/s?__biz=Mzg3NTA4OTQ4OQ==&amp;mid=2247485091&amp;idx=1&amp;sn=4de752a0fc187ddd89536f3cdff163f6&amp;chksm=cec79d9df9b0148be50073056c7fb7ea1087f79844ad941aa173d30e57c18766ef2bb23c8b2c#rd" property="og:url"/>
+<meta content="http://mmbiz.qpic.cn/mmbiz_jpg/kPsz6Up3kibk9ibicjmZx8wqkQib28kOju9kb12dqvgfn6Rajz2haqQuHu3eeNxfGw95BBMWMAX2F8EmarxGpXxowg/0?wx_fmt=jpeg" property="og:image"/>
+<meta content="论学生在经济、政治、心理、性和特别是思想方面的贫困" property="og:description"/>
+<meta content="微信公众平台" property="og:site_name"/>
+<meta content="article" property="og:type"/>
+<meta content="牛头角酒馆" property="og:article:author"/>
+<meta content="summary" property="twitter:card"/>
+<meta content="http://mmbiz.qpic.cn/mmbiz_jpg/kPsz6Up3kibk9ibicjmZx8wqkQib28kOju9kb12dqvgfn6Rajz2haqQuHu3eeNxfGw95BBMWMAX2F8EmarxGpXxowg/0?wx_fmt=jpeg" property="twitter:image"/>
+<meta content="青年节·转载 || 论学生生活的贫困（不完整译稿）" property="twitter:title"/>
+<meta content="牛头角酒馆" property="twitter:creator"/>
+<meta content="微信公众平台" property="twitter:site"/>
+<meta content="论学生在经济、政治、心理、性和特别是思想方面的贫困" property="twitter:description"/>
+<title></title>
+<style>
+</style>
+<script nonce="187699337" reportloaderror="" type="module">!function(){try{new Function("m","return import(m)")}catch(o){console.warn("vite: loading legacy build because dynamic import is unsupported, syntax error above should be ignored");var e=document.getElementById("vite-legacy-polyfill"),n=document.createElement("script");n.src=e.src,n.onload=function(){System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))},document.body.appendChild(n)}}();</script>
+<script crossorigin="" nonce="187699337" reportloaderror="" src="//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/appmsg.cef95ccd.js" type="module"></script>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/sprite.e3a96375.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/vendor.fef198e4.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/report.697843bf.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/wxwork_hidden.c276a9e4.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/loadscript.7cdf4b5a.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/voice_component.de72ba4c.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/lazyload_img.5f9675d2.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/outer_link.f320bead.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/review_image.1c6b81ee.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/pay_read_utils.2ede096c.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/controller.1ef98ce6.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/modal.879910c9.js" rel="modulepreload" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/appmsg.2eb6a3ff.css" rel="stylesheet" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/sprite.dcee1002.css" rel="stylesheet" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/report.5e0fdfbf.css" rel="stylesheet" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/wxwork_hidden.96d6e8be.css" rel="stylesheet" reportloaderror=""/>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/controller.184312fc.css" rel="stylesheet" reportloaderror=""/>
+<style>
+      .cooldown_tips {
+        margin: 30px auto;
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        font-size: 14px;
+        background-color: #f6f7f9;
+        border-radius: 6px;
+      }   
+      .cooldown_tips_icon {
+        display: block;
+        width: 18px;
+        height: 18px;
+        margin-right: 8px;
+      }
+    </style>
+</head>
+<body class="zh_CN wx_wap_page wx_wap_desktop_fontsize_2 mm_appmsg comment_feature discuss_tab appmsg_skin_default appmsg_style_default" id="activity-detail">
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+  var biz = "Mzg3NTA4OTQ4OQ==" || "";
+  var sn = "4de752a0fc187ddd89536f3cdff163f6" || "" || "";
+  var mid = "2247485091" || "" || "";
+  var idx = "1" || "" || "";
+  window.__allowLoadResFromMp = true; // 允许从mp.weixin.qq.com加载js资源
+  // window.__loadAllResFromMp = true; // 所有js资源都从mp域名加载
+</script>
+<script nonce="187699337" reportloaderror="">
+var page_begintime = (+new Date());
+// 辟谣需求
+var is_rumor = "";
+var norumor = "";
+if (!!(is_rumor * 1) && !(norumor*1) && !!biz && !!mid) {
+  if (!document.referrer || document.referrer.indexOf("mp.weixin.qq.com/mp/rumor") == -1){
+    location.href = "http://mp.weixin.qq.com/mp/rumor?action=info&__biz=" + biz + "&mid=" + mid + "&idx=" + idx + "&sn=" + sn + "#wechat_redirect";
+  }
+}
+</script>
+<script nonce="187699337" reportloaderror="" src="//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/biz_wap/safe/inline_mutation_observer5df5b9.js" type="text/javascript"></script>
+<link href="http://res.wx.qq.com" rel="dns-prefetch" reportloaderror=""/>
+<link href="http://mmbiz.qpic.cn" rel="dns-prefetch" reportloaderror=""/>
+<link href="https://wxa.wxs.qq.com" rel="dns-prefetch" reportloaderror=""/>
+<link href="http://res.wx.qq.com/a/wx_fed/assets/res/NTI4MWU5.ico" rel="shortcut icon" reportloaderror="" type="image/x-icon"/>
+<link color="#4C4C4C" href="http://res.wx.qq.com/a/wx_fed/assets/res/MjliNWVm.svg" rel="mask-icon" reportloaderror=""/>
+<link href="http://res.wx.qq.com/a/wx_fed/assets/res/OTE0YTAw.png" rel="apple-touch-icon-precomposed" reportloaderror=""/>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+String.prototype.html = function (encode) {
+  var replace = ["&#39;", "'", "&quot;", '"', "&nbsp;", " ", "&gt;", ">", "&lt;", "<", "&yen;", "¥", "&amp;", "&"];
+  // 最新版的safari 12有一个BUG，如果使用字面量定义一个数组，var a = [1, 2, 3]
+  // 当调用了 a.reverse() 方法把变量 a 元素顺序反转成 3, 2, 1 后，
+  // 即使此页面刷新了， 或者此页面使用 A标签、 window.open 打开的页面，
+  // 只要调用到同一段代码， 变量 a 的元素顺序都会变成 3, 2, 1
+  // 所以这里不用 reverse 方法
+  /*
+  if (encode) {
+      replace.reverse();
+  }*/
+  var replaceReverse = ["&", "&amp;", "¥", "&yen;", "<", "&lt;", ">", "&gt;", " ", "&nbsp;", '"', "&quot;", "'", "&#39;"];
+  var target;
+  if (encode) {
+    target = replaceReverse;
+  } else {
+    target = replace;
+  }
+  for (var i = 0, str = this; i < target.length; i += 2) {
+    str = str.replace(new RegExp(target[i], 'g'), target[i + 1]);
+  }
+  return str;
+};
+
+window.isInWeixinApp = function () {
+  return /MicroMessenger/.test(navigator.userAgent);
+};
+
+window.getQueryFromURL = function (url) {
+  url = url || 'http://qq.com/s?a=b#rd'; // 做一层保护，保证URL是合法的
+  var tmp = url.split('?'),
+    query = (tmp[1] || "").split('#')[0].split('&'),
+    params = {};
+  for (var i = 0; i < query.length; i++) {
+    var arg = query[i].split('=');
+    params[arg[0]] = arg[1];
+  }
+  if (params['pass_ticket']) {
+    params['pass_ticket'] = encodeURIComponent(params['pass_ticket'].html(false).html(false).replace(/\s/g, "+"));
+  }
+  return params;
+};
+
+(function () {
+  var params = getQueryFromURL(location.href);
+  window.uin = params['uin'] || "" || '';
+  window.key = params['key'] || "" || '';
+  window.wxtoken = params['wxtoken'] || '';
+  window.pass_ticket = params['pass_ticket'] || '';
+  window.appmsg_token = "";
+})();
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">window.PAGE_MID="mmbizwap:appmsg/newindex.html"</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+  var write_sceen_time = (+new Date());
+  var preview = "" * 1 || 0;
+
+  var currencyMap = {
+    'USD': '$',
+    'HKD': 'HK$',
+    'CAD': 'C$',
+    'AUD': 'A$',
+    'TWD': 'NT$',
+    'JPY': 'JPY￥',
+    'EUR': '€',
+    'SGD': 'S$',
+    'GBP': '£',
+    'NZD': 'NZ$',
+    'MYR': 'RM',
+    'KZT': '〒',
+    'KRW': '₩',
+    'THB': '฿',
+    'PHP': '₱',
+    'TRY': '₺',
+    'MXN': 'Mex$',
+    'CNY': '￥'
+  };
+  var can_use_wecoin = '1' * 1; // 是否个人号
+  var wecoin_tips = '0' * 1; // 是否出教育弹窗
+  /* var can_use_wecoin = 1; */
+  var wecoin_amount = '0' * 1; // 微信豆个数
+</script>
+<div class="rich_media" id="js_article">
+<div class="top_banner" id="js_top_ad_area"></div>
+<div class="rich_media_inner">
+<div class="rich_media_area_primary" id="page-content">
+<div class="rich_media_area_primary_inner">
+<div class="rich_media_wrp" id="img-content">
+<h1 class="rich_media_title" id="activity-name">
+            
+青年节·转载 || 论学生生活的贫困（不完整译稿）
+          </h1>
+<div class="rich_media_meta_list" id="meta_content">
+<span class="rich_media_meta rich_media_meta_text">
+                                      牛头角酒馆
+                                  </span>
+<span class="rich_media_meta rich_media_meta_nickname" id="profileBt">
+<a class="wx_tap_link js_wx_tap_highlight weui-wa-hotarea" href="javascript:void(0);" id="js_name">
+                国际英语角              </a>
+<div aria-hidden="true" class="profile_container" id="js_profile_qrcode" style="display:none;">
+<div class="profile_inner">
+<strong class="profile_nickname">国际英语角</strong>
+<img alt="" class="profile_avatar" id="js_profile_qrcode_img" src=""/>
+<p class="profile_meta">
+<label class="profile_meta_label">微信号</label>
+<span class="profile_meta_value">tocontinuetostruggle</span>
+</p>
+<p class="profile_meta">
+<label class="profile_meta_label">功能介绍</label>
+<span class="profile_meta_value">国际同文馆</span>
+</p>
+</div>
+<span class="profile_arrow_wrp" id="js_profile_arrow_wrp">
+<i class="profile_arrow arrow_out"></i>
+<i class="profile_arrow arrow_in"></i>
+</span>
+</div>
+</span>
+<em class="rich_media_meta rich_media_meta_text" id="publish_time"></em>
+</div>
+<div class="article-tag__list" data-len="0" id="js_tags" style="display: none;">
+<div class="article-tag-card__title">收录于合集</div>
+<div class="article-tags">
+</div>
+</div>
+<div class="rich_media_content" id="js_content" style="">
+<section style="box-sizing: border-box;font-size: 16px;"><section powered-by="xiumi.us" style="box-sizing: border-box;"><section><qqmusic albumid="003E46iK2V1igW" albumurl="https://y.gtimg.cn/music/photo_new/T002R68x68M000003E46iK2V1igW.jpg" audiourl="http://isure6.stream.qqmusic.qq.com/C200001xAhBs3suPSj.m4a?guid=2000000052&amp;vkey=51B03DA4D4A66FD61AA1C04AE0353C83B561FEDAC5DB580715A9B283100B6A35B8147CF816D56F7237BD8B2C491E20F84E254946A69AF8A5&amp;uin=&amp;fromtag=20052" class="js_editor_qqmusic qqmusic_iframe js_uneditable custom_select_card" data-pluginname="insertaudio" jumpurlkey="" mid="000ZB1KQ2FrmXb" music_name="Where Are They Now?" musicid="105224298" musictype="1" otherid="000ZB1KQ2FrmXb" play_length="208" singer="The Kinks - Preservation Act 1" src="/mp/readtemplate?t=app_editor/music&amp;singer=The%20Kinks%20-%20Preservation%20Act%201&amp;music_name=Where%20Are%20They%20Now%3F&amp;albumurl=https%3A%2F%2Fy.gtimg.cn%2Fmusic%2Fphoto_new%2FT002R68x68M000003E46iK2V1igW.jpg&amp;musictype=1"></qqmusic></section><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(62, 62, 62);box-sizing: border-box;"><strong style="box-sizing: border-box;"><span style="font-size: 24px;box-sizing: border-box;">论学生生活的贫困</span></strong></span><br/></p><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(108, 108, 108);box-sizing: border-box;"> </span></p><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(108, 108, 108);font-size: 14px;box-sizing: border-box;">情境主义国际和斯特拉斯堡学生</span></p><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(108, 108, 108);font-size: 14px;box-sizing: border-box;"> </span></p><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(108, 108, 108);font-size: 14px;box-sizing: border-box;">1966年11月</span></p><section style="white-space: normal;box-sizing: border-box;margin-left: 32px;margin-right: 32px;"><span style="font-size: 14px;box-sizing: border-box;color: rgb(178, 178, 178);">本文转载自：</span></section><section class="mp_profile_iframe_wrp"><mpprofile class="js_uneditable custom_select_card mp_profile_iframe" data-alias="" data-from="0" data-headimg="http://mmbiz.qpic.cn/mmbiz_png/D2n02hw0P62lvcicsOQ2dibicI8sj9w0qvIzxR60G9sdx5Ciaxkroc7TGM9CnK4QicUBtsdsq2FxBVjANtP6d3OnZ8w/0?wx_fmt=png" data-id="MzU5NzkwMjY0NQ==" data-nickname="牛头角酒馆" data-pluginname="mpprofile" data-signature="蚂蚁森林里会有电子越共吗？"></mpprofile></section><section style="white-space: normal;box-sizing: border-box;margin-left: 32px;margin-right: 32px;"><span style="font-size: 14px;box-sizing: border-box;"> </span><span style="font-size: 14px;box-sizing: border-box;color: rgb(178, 178, 178);">译校：咔嚓船长</span><br/></section><p style="white-space: normal;box-sizing: border-box;"><span style="font-size: 14px;box-sizing: border-box;"><br/></span></p></section><section powered-by="xiumi.us" style="color: rgb(108, 108, 108);box-sizing: border-box;"><section style="box-sizing: border-box;font-size: 16px;"><section powered-by="xiumi.us" style="box-sizing: border-box;"><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(62, 62, 62);box-sizing: border-box;"><strong style="box-sizing: border-box;"><span style="font-size: 24px;box-sizing: border-box;"></span></strong></span></p><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(108, 108, 108);box-sizing: border-box;"></span></p><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(108, 108, 108);font-size: 14px;box-sizing: border-box;">情境主义国际和斯特拉斯堡学生</span></p><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(108, 108, 108);font-size: 14px;box-sizing: border-box;"></span></p><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: rgb(108, 108, 108);font-size: 14px;box-sizing: border-box;"></span></p><p style="white-space: normal;box-sizing: border-box;"><span style="font-size: 14px;box-sizing: border-box;"> </span></p></section><section powered-by="xiumi.us" style="color: rgb(108, 108, 108);box-sizing: border-box;"><p style="white-space: normal;box-sizing: border-box;"><span style="font-size: 18px;box-sizing: border-box;color: rgb(136, 136, 136);"><strong style="box-sizing: border-box;">译者按：</strong></span></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);">《论学生生活的贫困》，全名为《论学生在经济、政治、心理、性以及特别是思想方面的贫困，并提出一些消除贫困的建议》，于1966年6月由情境主义国际（Situationist International）与斯特拉斯堡大学学生写作而成，文本的主要作者为突尼斯人穆斯塔法·卡亚提（Mustapha Khayati）。斯特拉斯堡学生用学生会经费印刷了10000册，并在开学典礼上分发给了到场嘉宾，最终导致法院决定强制关闭该学生会。《论学生生活的贫困》对大学生的惰性进行了批判，继而发展到对整个资本主义系统的批判，为1968年五月风暴打下了坚实的基础。</span></p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);">文本原文为法文，本译文以英译文为基础翻译，质量必然不佳。译文只完成了三分之二，因为忠实翻译文本的第三部分必然会导致文章发不出来，况且在豆瓣已经存在了另一篇完整中译文。追求文章清晰完整的读者可以点击下方链接阅读英译文或法语原文。秉承原作的精神（“即使不注明出处，也可以自由复制，翻译或改编该文本。”），译者不保留本翻译的任何著作权。</span></p><p style="white-space: normal;box-sizing: border-box;"><br/></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);"><strong style="box-sizing: border-box;"><span style="font-size: 18px;box-sizing: border-box;">附：</span></strong></span></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);">豆瓣中译文：</span></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);">https://www.douban.com/group/topic/149023860/?_i=5426296Wi8v8oI</span></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);">英译文：</span></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);">https://www.cddc.vt.edu/sionline/si/poverty.html</span></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);">法语原文：</span></p><p style="white-space: normal;box-sizing: border-box;"><span style="color: rgb(136, 136, 136);">http://trajectoire-situationniste.unistra.fr/fileadmin/upload/trajectoire-stituationniste/De_la_mise__re_en_milieu_e__tudiant.pdf</span></p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p></section><section powered-by="xiumi.us" style="box-sizing: border-box;"><section style="display: flex;flex-flow: row nowrap;margin: 10px 0%;text-align: center;justify-content: center;box-sizing: border-box;"><section style="display: inline-block;vertical-align: middle;width: 33.33%;align-self: center;box-sizing: border-box;"><section powered-by="xiumi.us" style="margin-top: 0.5em;margin-bottom: 0.5em;box-sizing: border-box;"><section style="background-color: rgba(223, 33, 33, 0.78);height: 1px;box-sizing: border-box;"><section><svg style="float:left;line-height:0;width:0;vertical-align:top;" viewbox="0 0 1 1"></svg></section></section></section></section><section style="display: inline-block;vertical-align: middle;width: 16px;flex: 0 0 auto;height: auto;border-width: 0px;border-style: none;border-color: rgb(62, 62, 62);align-self: center;box-sizing: border-box;"><section powered-by="xiumi.us" style="box-sizing: border-box;"><section style="display: flex;flex-flow: row nowrap;justify-content: center;box-sizing: border-box;"><section style="display: inline-block;vertical-align: top;width: auto;flex: 100 100 0%;height: auto;align-self: flex-start;box-sizing: border-box;"><section powered-by="xiumi.us" style="transform: rotateZ(14deg);-webkit-transform: rotateZ(14deg);-moz-transform: rotateZ(14deg);-o-transform: rotateZ(14deg);box-sizing: border-box;"><section style="box-sizing: border-box;"><section style="display: inline-block;width: 3px;height: 15px;vertical-align: top;overflow: hidden;background-color: rgba(223, 33, 33, 0.78);box-sizing: border-box;"><section><svg style="float:left;line-height:0;width:0;vertical-align:top;" viewbox="0 0 1 1"></svg></section></section></section></section></section><section style="display: inline-block;vertical-align: top;width: auto;flex: 100 100 0%;height: auto;align-self: flex-start;box-sizing: border-box;"><section powered-by="xiumi.us" style="transform: rotateZ(14deg);-webkit-transform: rotateZ(14deg);-moz-transform: rotateZ(14deg);-o-transform: rotateZ(14deg);box-sizing: border-box;"><section style="box-sizing: border-box;"><section style="display: inline-block;width: 3px;height: 34px;vertical-align: top;overflow: hidden;background-color: rgba(223, 33, 33, 0.78);box-sizing: border-box;"><section><svg style="float:left;line-height:0;width:0;vertical-align:top;" viewbox="0 0 1 1"></svg></section></section></section></section></section></section></section></section><section style="display: inline-block;vertical-align: middle;width: 33.33%;align-self: center;box-sizing: border-box;"><section powered-by="xiumi.us" style="margin-top: 0.5em;margin-bottom: 0.5em;box-sizing: border-box;"><section style="background-color: rgba(223, 33, 33, 0.78);height: 1px;box-sizing: border-box;"><section><svg style="float:left;line-height:0;width:0;vertical-align:top;" viewbox="0 0 1 1"></svg></section></section></section></section></section></section><section powered-by="xiumi.us" style="box-sizing: border-box;"><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p></section><section powered-by="xiumi.us" style="padding-right: 7px;padding-left: 7px;box-sizing: border-box;"><p style="white-space: normal;box-sizing: border-box;"><strong style="box-sizing: border-box;"><span style="font-size: 18px;box-sizing: border-box;">1.将羞耻公之于众，以使其令人更羞耻</span></strong></p><p style="white-space: normal;box-sizing: border-box;"><br/></p><p style="white-space: normal;box-sizing: border-box;">可以肯定地说，除了警察和神父以外，学生是法国最普遍受鄙视的生物了。但是，他们之所以被鄙视往往可以归因于一些主流意识形态的错误偏见。而从革命的视角来看，他们真正有理由被批判的地方仍然不为人所知。那些虚假反对派们倒是意识到了学生的缺点——他们自身也有这些缺点——但他们很快把实际上的轻蔑转变为了对学生的阿谀奉承。无能的左派知识分子（从《现代时报》（Les Temps Modernes）到《快报》（L'Express））对所谓的“学生的崛起”欣喜若狂，而日益衰落的官僚机构（从法国“共产”党到法国学生全国联盟）则吵着要争取其“精神和物质支持”。我们将展示它们如此关注学生群体的原因，以及它们是如何根植于过度发展的资本主义所主宰的现实中的。我们将用这本小册子逐一谴责他们：压制异化必定要遵循与异化过程相同的路径。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">到目前为止，所有对学生生活的分析和研究都忽略了一个基本问题：它们无一例外都没有超越学术专业化（心理学、社会学、经济学）的观点，因此从根本上来说都是错误的。傅里叶很久以前就揭露了这种“方法论的近视”，即在处理基本问题时不把它们与整个现代社会联系起来。对事实的盲目崇拜掩盖了本质范畴，大量的细节遮蔽了总体性。人们在谈论这个社会的一切，但不谈它的真实面目：一个被商品和景观所主宰的社会。社会学家布尔迪厄（Bourdieu）和帕塞隆（Passeron）在他们的研究《继承人：学生与文化》（Les Heritiers: Les etudiants et la culture）中成功揭露的部分真相面前，仍然无能为力。尽管他们有良好的意愿，但最后又退回到了学者派头样子的道德上，这是不可避免的康德伦理，即通过真正合理化的教学体系来实现真正的民主化。与此同时，他们的信徒，比如克拉维茨（Kravetz），用过时革命用语的大杂烩来补偿他们对官僚主义的不满。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">现代资本主义的景观化给每个人在被动状态下分配了一个特定的角色，学生也不例外。学生扮演着一个临时角色，这个临时角色是他们最终要在商品社会中扮演的保守角色的预演。做学生只是某种入会仪式。这种入会仪式神奇地囊括了一个神话中入会仪式的所有特征。它仍然完全脱离历史、个人和社会现实。学生过着一种双重生活，在他如今的境遇和未来走入商品社会后完全不同的境遇之间徘徊，直到有一天他被突然推入后一种境遇。同时，他沉浸于一种精神分裂的意识中，退缩到他的入会团体中去躲避那个未来，在神秘的恍惚状态中，他仿佛置身于历史之外。毫不奇怪，他逃避自己面对的困境，尤其是经济方面的：在我们这个“富裕社会”里，他仍然是一个穷光蛋。超过80％的学生来自工人阶级以上的收入群体，但其中90％的人的收入低于底层工人。学生的贫困是景观社会里的一个错误现象：它尚未达到新无产阶级的新贫困。在一个越来越多的年轻人从道德偏见和家庭权威中挣脱出来的时代，他们在很小的年龄就受到了毫不掩饰的直接剥削。迟来的青春期危机可能会激起他与家人偶尔的争吵，但他毫无怨言地接受了管理他日常生活的各种机构把他当作婴儿对待。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">学生的贫困仅仅是所有社会生活领域殖民化的最粗暴的表现。社会对学生问题良心不安，但那只是因为真正的问题是所有人的贫穷和奴役。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">但是，我们轻视学生的原因大不相同。他的可鄙不在于他的贫困，而是在于他对各种贫困的自满，在于他沉湎于自己异化的、病态的倾向，希望在普遍缺乏兴趣的情况下，唤起大众对他的特殊匮乏的关注。现代资本主义的要求决定了大多数学生将仅仅成为低级别的小官僚，其职能与19世纪的技术工人相当。他们目前不体面的贫困境遇却只被允诺了如此惨淡的前景和平庸的“奖励”，因此学生更愿意在现在的不真实中寻求庇护，在这里他可以用虚假的幻梦装点它。<span style="font-family: 等线;letter-spacing: 0.544px;text-indent: 28px;background-color: rgb(255, 255, 255);color: rgb(255, 0, 0);"></span></p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">学生是一个坚忍的奴隶：权威给他的枷锁越多，他就越觉得自己自由。就像他的新家庭——大学——一样，他也相信自己是社会中最“独立”的存在，而事实上，他直接受制于两个最强大的社会权威体系：家庭和国家。而作为上述两者乖巧、感恩又顺从的孩子，他分享并体现着这个体系的所有价值观和骗人把戏。过去那些强加于白领工人的幻想，现在已经被未来的小职员们自愿内化并传播着。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">如果古代的社会贫困产生了历史上最宏大的补偿制度——宗教，那么处于边缘贫困的学生除了统治社会最陈旧的形象，即所有异化产物的闹剧重复之外，找不到其他的安慰。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">作为一种意识形态化的存在，法国学生总是来得太晚。他那封闭的小小世界所引以为傲的一切价值和热情，早已被历史宣判为可笑的和站不住脚的幻想。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">曾几何时，大学还有一定的威望，学生还能坚信他们能在大学学习是幸运的。但现在他来得太晚了，他的智力水平比起如今所受的机械的、专门的教育受到了严重的贬低（与以前的资产阶级通识文化相比），因为现代经济体制需要的是大量不受教育和缺乏思考能力的学生。大学已成为一个传播无知的机构。“高雅文化”被教授们流水线生产出来，这些教授都像是白痴一样，其中的大多数都会受到任意高中生听众的嘲笑。但处于精神更年期的学生并不知道这一切；他继续聆听来自主人的教诲，自觉抑制所有的批判精神，以便让自己沉浸在成为一个“学生”的神秘幻觉中——一个认真致力于学习严肃事物的人——希望他的教授最终会把世界的终极真理揭示给他。未来的革命社会将会谴责这些演讲厅和教室里的噪音，它们只会是语言污染。所谓的学生群体已经成为了一个差劲的笑话。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">学生并不知道，历史正在改变他那小小的象牙塔世界。著名的“大学危机”（crisis of the university）作为现代资本主义整个大危机的一个细节，现在仍然是各种专家之间进行装聋作哑对话的素材。它只是说明了这一特殊生产部门迟迟不能适应生产关系的普遍改造中所遇到的困难。旧的自由主义资产阶级大学意识形态的残余正随着其社会基础的消失而变得陈腐。在自由贸易资本主义时代，当自由主义国家为大学设定了一个相对自由的边界时，大学可以把自己想象成一个独立的力量。但即使是这样，大学仍然与社会的需求紧密相连，为享有特权的少数人提供充分的通识教育，使他们在统治阶级中站稳脚跟。很多怀旧的教授感到苦闷，因为他们失去了以前作为看门狗服务于那些未来统治者的地位，被重新分配到那些远不那么高贵的职位，像牧羊犬一样按照“计划经济”的需要，将“羊群”般的白领赶到各自的工厂和办公室。这些教授仍然高举他们的陈词滥调以作为大学技术官僚化的替代方案，并不动声色地继续向未来的专家听众提供通识文化碎片，而这些未来的专家将永远不会知道如何去使用它们。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">更严重且更危险的是，左派的现代主义者和法国学生全国联盟中以里昂学生联合会为首的“极端分子”，号召“改革大学结构”，“使大学重新融入社会和经济生活”，也就是要让大学适应现代资本主义的需要。曾经为统治阶级提供“通识文化”的大学，虽然仍保留着一些过时的声望，但正在被改造成强行灌输式培养中低层员工的流水线工厂。这一历史进程正在使社会生活中最后一个相对自主的部门屈从于商品社会的要求，而上述秉持进步立场的人士非但没有对这一历史进程提出异议，反而抱怨这一进程执行得太拖延太低效了。他们是未来控制论大学的支持者，而这种大学现在已经处处显露出了它丑陋的面目。商品经济制度和它最新的现代仆人——这些是我们真正的敌人。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">至于学生，这场斗争完全是在他的头上进行的，在他的主人的天国里。学生的生活完全不受学生自身控制，生活本身也完全超出了他的控制范围。由于严重的经济贫困，学生注定只能勉强糊口。但是，他总是自鸣得意，炫耀着他平凡的贫困，好像这是一种独创的生活方式，把寒酸当作是一种波希米亚风格。无论如何，“波西米亚主义”远非一种新颖的解决方案，但那种认为一个人不与大学环境彻底决裂就可以过上真正的波西米亚生活的想法是非常可笑的。波西米亚风格的学生（每个学生都喜欢假装他是一个波希米亚人）坚持着自己模仿的劣质版本，而且即使在最好的情况下，这也只是一种平庸的个人解决方案。在这方面，乡下的老太太都比他懂得多。在威廉·赖希（Wilhelm Reich）（一位杰出的青年教育家）提出理论三十年后，现在这些潜在的“离经叛道者”继续遵循着最传统的做爱体位，在他的两性关系中重现着阶级社会的通用关系。他很容易被招募为任何事业的好战分子，这充分证明了他真正的无能。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">尽管学生可以在极权主义景观所允许的个人自由范围内或多或少宽松地使用时间，他们还是尽力避免去冒险或尝试，更享受由系统监护者“为他的利益”建立起来的受约束的日常时空所带来的安全感。虽然没人要求他们把工作和休闲分离开来，但学生还是自愿去这样做了，同时一直虚伪地宣称他蔑视“好学生”和“学霸”。他接受各种形式的分离，然后窝在自己的宗教、体育、政治或工会社团的井底里哀叹“缺乏交流沟通”。他是如此的愚蠢和悲惨，以至于他自愿向大学心理援助中心屈服——这些由现代压迫的先锋建立的心理警察控制机构，自然被誉为学生会主义的伟大胜利。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">学生日常生活中的真实贫困在文化商品的鸦片中找到了直接的、虚幻的补偿。在文化景观中，学生被分配到了他的习惯性角色——恭顺的门徒。虽然他离文化生产点很近，但却无法接近真正的文化圣地；因此，他以一名欣赏者的身份发现了“现代文化”。在一个艺术已死的时代，他仍然是剧院和电影院最忠实的赞助人，也是文化超市里陈列的艺术尸体包装碎片的最狂热的消费者。他最擅长的就是毫无保留地、不加批判地消费。如果“文化中心”不存在，学生就会发明它们。学生是美国市场研究中所有陈词滥调指向的一个完美例子：一个喜好炫耀的消费者，受制于广告而对那些同质化的无价值商品保持不同的态度，狂热偏好一个品牌（例如佩雷克和戈达尔）并狂热对另一个品牌表达非理性偏见（也许是罗伯·格里耶勒鲁什）<span style="color: rgb(255, 0, 0);">（在这一点上译者登峰造极，对百事可乐持有最强烈的偏见）</span>。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">当创作和制造学生心目中文化奇观的“众神们”以人类的形式出现在舞台上时，学生就是他们最主要且完美的观众。学生们成群结队地参加他们最下流的展览。当不同的教会的神父展现出他们蹩脚又毫无结果的对话（比如“马克思主义”思想的研讨会，天主教知识分子会议等），或者当文学碎片聚集在一起见证其自身的无能时（比如五千个学生参加一个名为“文学的可能性是什么”的论坛），除了学生，还有谁会填满报告厅？</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">由于缺乏真正的激情，学生们在无趣的名人那毫无激情的论战中寻找乐趣：从阿尔都塞——加洛蒂——萨特——巴特——皮卡德——列斐伏尔——列维-斯特劳斯——哈利代——夏太莱——安托万……以及他们对立的神学之间，像所有神学一样，旨在通过制造假问题来掩盖真正的问题：人文主义——存在主义——结构主义——科学主义——新批评——辩证自然主义——控制论——行星主义——元哲学……</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">如果他看过最新的戈达尔，或者买了最新的论辩书，或者参加了那个混蛋拉帕萨德组织的最新活动，他就会认为自己是最前卫的。他尽可能快地发现最新的旅行路线，就像市场能够生产出过时很久（但曾一度很重要）的赝品一样；由于无知，他把每一次老调重弹都当作一次文化上的革命，而他最关心的始终是保持自己的文化地位。像其他人一样，他急切地抢购书店内的所有“经典”和晦涩文本的平装版本。不幸的是，他并不知道如何去阅读理解，只是满足于深情凝视着他们。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">他最喜欢的读物是专门疯狂消费文化新事物的报刊。他毫无反思地接受其商业指令，将其作为衡量自己品味的唯一标准。他醉心于《快报》或《新观察家》；或许他更喜欢《世界报》，他觉得这是一份准确又真正“客观”的报纸，尽管他觉得它的风格有点枯涩。为了加深他的知识，他开始阅读《行星报》，一本华而不实的神奇杂志，可以去除陈旧观念中的皱纹和黑头。有了这样的指导，他希望获得对现代世界的理解，并拥有政治意识！</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">因为在法国，学生比其他任何地方都更愿意被政治化。但他的政治参与也是以同样的景观作为中介的。因此，他抓住了40多年前就已被“社会主义”改良主义和斯大林主义反革命所消灭的左派那可怜的破烂残余。统治者很清楚工人运动的失败，工人们自己也很清楚，虽然相对而言比较混乱。但学生们仍然对此视而不见，继续愉快地组织只有他们自己参加的可笑示威活动。这种完全的政治无知使大学成为日益衰落的官僚机构（从法国“共产”党到法国学生全国联盟）操纵的快乐狩猎场，这些机构极权地规划着学生的政治选择。偶尔会有一些偏离的倾向和轻微的“独立”呼声，但经过一段时间的象征性抵抗后，持不同政见者总是会被重新纳入一个他们从未从根本上质疑过的秩序。“革命共产主义青年”这个名字则是一个疯癫的意识形态篡改（他们既不革命，也不共产，更不年轻），他们以反抗过法国“共产”党而自豪，然后又加入教皇的队伍一起呼吁“越南和平”。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">学生以反对戴高乐政权的“老套过时”而自豪，但这样做却无意中暗示了他对更早的罪行的认可（比如斯大林主义的陶里亚蒂，加洛蒂，赫鲁晓夫和X)。因此，他们的“年轻”态度实际上比戴高乐政权的态度更为“老套过时”——戴高乐主义者至少还对现代社会有足够的了解来管理它。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">但这并不是学生群体中唯一的陈旧主义。他觉得有义务对每件事都有一个大致的想法，形成一个连贯的世界观，能够让他对神经活动和无性滥交的需要变得有意义。因此，他成了教会最后传教努力的牺牲品。带着返祖的热情，他急于崇拜上帝腐烂的尸体，并珍视史前宗教的腐烂遗骸，相信它们丰富了他和他的时代。与乡下的老太太一样，学生是宗教信仰者所占比例最高的社会群体。在其他地方，牧师们都被侮辱和驱逐，但是大学的牧师们却无耻地继续在他们的精神殿堂里骚扰成千上万的学生。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">平心而论，我们应该提到，有一些还算聪明的学生<span style="color: rgb(255, 0, 0);">（译者注：作者认为这里指的是斯特拉斯堡大学学生会的学生）</span>。这些学生很容易就能绕开旨在控制中庸学生的糟糕规定。他们之所以能够这样做，是因为他们了解这个体系；他们理解它，因此他们鄙视它，知道自己是它的敌人。他们进入教育系统是为了得到教育系统所能提供的最好的东西：助学金。利用这一矛盾，他们将会平静地把煽动叛乱的病菌带到最高层。至少在目前，这一矛盾迫使整个体系维持一个相对独立的小规模学术“研究”部门。他们对体制的公开蔑视，与他们胜过体制内的走狗的清醒头脑是密不可分的。他们已经跻身于即将到来的革命运动的理论家之一，并且以开始被人畏惧而自豪。他们毫不掩饰地表示，他们从“学术体系”中轻而易举提取的东西是用来破坏它的。因为学生如果不反抗他学习的内容，他就不能反抗任何其它东西，尽管这种反感的必要性并不如工人那么自然。在工人看来很自然，因为工人会自发地对自己作为工人的地位产生反感。但学生是现代社会的产物，就像戈达尔和可口可乐一样。他的极端异化只能通过对整个社会的抗争来进行抗争，批判绝不能在学生的层面上进行。仅仅把批判停留在学生层面的人是在用一种伪价值来标识自己，这种假象使他无法意识到自己的现实认知被剥夺了，因此他仍然停留在虚假意识的高度。但在任何一个现代社会开始受到质疑的地方，年轻人都在参与这种质疑；这种反抗代表了对学生生活最直接、最彻底的批判。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;"><span style="font-size: 20px;box-sizing: border-box;"><strong style="box-sizing: border-box;">2.理论在实践中寻求实现是不够的；实践必须寻求它自己的理论</strong></span></p><p style="white-space: normal;box-sizing: border-box;"><br/></p><p style="white-space: normal;box-sizing: border-box;">在长期的麻木和反革命后，新的反抗在过去几年中萌发了，而这在年轻人当中最为明显。但是，景观社会既代表了它自己，也代表了它的敌人，并把它的意识形态范畴强加给了世界和属于这个世界的历史。它令人宽心地展示着发生的一切，仿佛它是事物自然秩序的一部分，并把那些预示着它将被取代的、真正新的发展降低到肤浅的、消费式的新奇感。事实上，年轻人对强加给他们的生活方式的反抗只是一个预兆，是一个更广泛的颠覆的初步表现，而这种颠覆将包括所有那些觉得自己越来越不可能生活在这个社会中的人，这是下一个革命时代的前奏。主流意识形态及其喉舌用颠倒现实的方法将这种真实的历史运动归结为一个社会自然学范畴：青年理念。任何新的青年反叛都被说成是每代青年都会不断出现的永恒反叛。“当青年人投身于严肃的生产事业并被赋予真实具体的目标时”，它会逐渐消失。青年反叛经受了名副其实的新闻膨胀（人们被呈现在反叛的景观中，以降低他们参与反叛的可能性）。它被描述为一个反常但必要的社会安全阀，在系统的平稳运行中发挥着它的作用。这种对社会的反抗之所以让社会放心，是因为它被认为是边缘的。它被归入“青少年问题”（类似于“种族问题”或“妇女问题”）这样的身份隔离中，并且很快就不再存在。事实上，如果现代社会中真的存在“青年问题”，那就是青年人最强烈地感受到这个社会的深刻危机，并试图表达出来。<strong>青年及其被赋予的虚假的自由是现代社会最纯粹的产物。青年的现代性在于他们被提供并已经做出的选择：完全融入新资本主义（neo-capitalism），或是最激进的拒绝。</strong>令人惊讶的并不是反叛的青年人，而是如此顺从的“成年人”。但这种现象的原因是有关历史的，而不是有关生物学的：<strong>上一代人经历了所有的失败，并吞下了“被出卖的革命运动已经可耻地长期瓦解了”的所有谎言。</strong></p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">“青年”这个词本身就是一个与资本主义生产方式相关联的宣传神话。作为新的“社会活力”的一部分，青年是资本主义生产方式的潜在盟友。年轻人虚幻的地位始于第二次世界大战后的经济复苏。资本与劳动力在战后达成了一项协议：工人阶级在战后成为了新一代可操纵的消费者，作为对此的回报，工人被赋予景观社会中的一席之地，成为了其正式成员。这至少是一个理想的社会模式，尽管和往常一样，它与社会经济的现实关系不大（而社会经济的现实则往往落后于消费意识形态）。尽管已经完成了现代化进程，死气沉沉的日常生活仍然是现代资本主义的基本产物，而这导致了对新世界持续存在的现实第一次愤怒的爆发——青年反叛。<strong>一小部分青年能够拒绝这个社会及其产品，但却不知道这个社会可以被取代。他们选择接受虚无主义的礼物。然而，摧毁资本主义再次成为一个现实问题，一个历史事件，一个已经开始的进程。持不同政见的青年必须实现批判理论的一致性，并切实组织这种一致性。</strong></p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">在最原始的层面上，全世界的“违法者”用暴力表达了他们拒绝融入社会的态度。但是，他们这种拒绝的抽象性让他们没有机会逃避一个系统性的矛盾，因为他们自己就是这个系统的一个自发的负面产物。“违法者”的产生是由当前社会秩序的各个方面导致的：住房项目的城市化、价值观的崩溃、日益无聊的消费休闲的扩展、“人性化”的警察对日常生活各个方面控制的增强，以及失去了一切意义的、以家庭为单位的经济生存。他们鄙视工作，但他们接受商品。他们想要景观带给他们的一切，他们现在就想要；但是他们付不起钱。这种基本矛盾支配着他们的整个存在，限制了他们真正自由地利用时间、表达自己和形成一种社区的努力。（他们的微型社区则在发达社会的边缘重建了原始主义，而这种原始主义的贫困不可避免地在帮派内部重建了等级制度。这种等级制度只能在与其他帮派的战争中实现，它将帮派和帮派之间的每个人都隔离了开来。）为了摆脱这种矛盾，“违法者”必须要么去工作以购买商品——为此，整个生产部门都致力于引诱他消费（摩托车、电吉他、衣服、唱片等）——要么他被迫去违反商品社会的法则，去做最初级的事情——偷窃，要么以有意识的方式对商品世界进行革命性的批判。消费“软化”了这些年轻反叛者的行为，他们的反叛消退为最糟糕的墨守成规。对“违法者”来说，只有两种未来是可能的：革命意识的觉醒，或在工厂车间里盲目服从。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">普罗沃运动<span style="color: rgb(255, 0, 0);">（普罗沃运动是20世纪60年代中期的荷兰反主流文化运动，其重点是利用非暴力诱饵激起当局的暴力反应）</span>是第一代“违法者”组织，也是其第一次进行政治表达的组织。它们是两群截然不同的人组成的联盟：已经堕落的艺术世界的少数野心家和寻找自我表达的一群年轻反叛者。“艺术家”们贡献了一些关于这个游戏的想法，尽管仍然相当神秘，并穿着各种破旧的意识形态服装；年轻的反叛者除了反抗的暴力之外什么都没有。从一开始，这两种倾向就截然不同的；无理论的大众发现自己处于一小撮可疑的艺术家领导人的监护之下，他们试图通过建立一种“普罗沃意识形态”来维持自己的权力。艺术家们的新艺术改良主义摧毁了反叛者使暴力在思想层面凌驾于艺术之上的可能性。普罗沃是现代资本主义产生的最后一种改良主义的表达：日常生活的改良<span style="color: rgb(255, 0, 0);">（参考瓦纳格姆于1967年所写的《日常生活的革命》）</span>。普罗沃意识形态——就像伯恩斯坦认为通过改良可以将资本主义逐步转变为社会主义一样——相信一些改进措施可以改变日常生活。他们没有意识到，日常生活的平庸不是偶然的，而是现代资本主义的核心机制和产物。要消灭它，最需要的就是全面革命。而普罗沃意识形态从一小部分碎片出发接受了整体。为了给自己一个基础，他们的领导人编造了荒谬的“普罗沃塔利亚”意识形态（一种艺术和政治混合物，用宴会里发霉的残羹剩饭拼凑而成）。这种新的“普罗沃塔利亚”与所谓被动的和“资产阶级化”的无产阶级形成了鲜明对比。因为他们对争取社会彻底变革的斗争感到绝望，所以他们对唯一能带来这种变革的力量也感到绝望。无产阶级是资本主义社会的发动机，因此也是资本主义社会的致命威胁：一切都是为了镇压无产阶级——政党、官僚工会、警察（他们攻击资本主义社会的次数比普罗沃运动攻击的次数还多），以及资本主义社会对日常生活各方面的殖民化——因为它是唯一真正具有威胁性的力量。普罗沃运动对此一无所知；他们仍然不批评生产系统，因此他们仍然是整个系统的囚徒。当一场反工会的工人暴乱促使普罗沃运动成员加入直接暴力时，他们困惑的领导人被完全抛在了后面，只能在口头上谴责“过激行为”和呼吁非暴力。这些领导人的计划是激怒当局使用暴力，以暴露他们的镇压性，最后他们抱怨说反而是他们被警察激怒的。他们通过广播呼吁年轻的暴动者让他们受“普罗沃意识形态”的指引，也就是受领导者的指引，这充分证明他们模糊的“安娜其主义”只不过是又一个谎言。为了达成革命性的批判，反叛的普罗沃成员必须从反抗自己的领导人开始，这意味着与无产阶级的客观革命力量联系起来，抛弃像康斯坦丁和德弗里斯（荷兰王国的官方艺术家和崇拜英国警察的议会失败候选人）这样的人。只有这样，普罗沃运动才能与真正的现代论争联系起来。如果他们真的想改变世界，他们必须摆脱那些满足于把世界漆成白色的人。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">通过质疑他们所学的东西，美国学生直接质疑了一个需要这样的教育的社会。他们一开始就把对大学等级制度的反抗（在伯克利和其他地方）看作是对基于等级制度以及经济与国家专政制度的整个社会制度的反抗。通过拒绝接专业学习为他们准备的商业机构角色，他们对一个将所有活动及其产品与它们的生产者分离的生产体系提出了深刻的质疑。尽管他们一直在摸索和困惑，反叛的美国青年已经在“富裕社会”中找到了一个连贯的革命性替代方案。不幸的是，他们很大程度上仍然固守着美国危机中两个相对比较偶然的方面——黑人和越南——而小的“新左派”组织也受到这一事实的影响。他们的形式显示了对民主的真正追求，但是他们颠覆性内容的弱点使他们陷入危险的矛盾之中。<strong>由于他们极端的政治无知和对世界真实情况的天真幻想，他们对旧左派传统政治的敌意很容易被无意中转化为对旧左派传统政治的接受。</strong>对他们社会的抽象反对使他们钦佩或支持其最突出的敌人：XX或古巴的“社会主义”官僚机构。像“复兴青年运动”这样的组织可以同时谴责国家和赞扬“文化大XX”，这是由当代最庞大的官僚机构发动的假起义。与此同时，这些半自由主义和去中心化的组织，由于明显缺乏内容，不断有陷入群体动力操纵的意识形态或陷入宗派主义世界的危险。成瘾药物的广泛消费是真正贫困的表现，也是对这种真正贫困的抗议：它是在一个致力于镇压的世界里对自由的错误追求，是对一个宗教早已被取代的世界的宗教批判。在垮掉的一代（青年起义的右翼）中，这种现象如此普遍并不是偶然的。在那里，对意识形态的拒绝与最荒谬的迷信（禅宗、灵性主义、“新教会”神秘主义和其他腐朽的躯壳，如甘地主义和人文主义）的接受并存。美国学生在寻找革命计划的过程中犯了和普罗沃一样的错误，宣称自己是“社会上最受剥削的阶层”；现在他们必须明白，他们的利益与所有遭受商品奴役和普遍压迫的人没有什么不同。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">在苏东集团，官僚极权主义内部也开始产生否定自己的力量。那里的青年起义特别激烈和暴力，但有关这些起义的唯一信息只能从官方出版物对起义的谴责以及警方为遏制起义而采取的措施看到。我们从这些资料中了解到，一部分青年不再“尊重”道德和家庭秩序（这种秩序仍然在苏东集团以最可憎的资产阶级形式存在），而是致力于“放荡”，鄙视工作，不再服从警察和史塔西。苏联已经设立了一个部门，专门打击这种新的违法行为。伴随着这种弥漫的反抗，一些更为具体的组织正在出现；小团体和秘密期刊的出现和消失取决于警察镇压的波动。到目前为止，最重要的行动是年轻的波兰人库隆和莫德泽勒夫斯基（Kuron and Modzelewski）发表的《致波兰劳动党的公开信》，明确申明“要废除目前的生产关系和社会关系”，并承认为了实现这一目标，“革命是不可避免的”。苏东知识分子试图阐明并意识到工人们已经在东柏林、华沙和布达佩斯有了具体化的批判：来自无产阶级对官僚阶级权力的批判。这场叛乱正处于不得不同时提出和解决真正问题的困难境地。<strong>在其他国家，斗争是可能的，但目标仍然不甚明了。在苏东官僚体系中，斗争没有幻想，目标是众所周知的；困难的是要设计出能为实现它们开辟道路的形式。</strong></p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">在英国，青年人的反抗是在和平运动中首次表现出来的。这场局部斗争围绕着100人委员会的模糊计划展开，该计划能够将30万人带到街上。1963年春天的“和平间谍”丑闻事件是它最漂亮的行动。但由于缺乏激进的观点，它不可避免地倒退，被传统左派的政治操纵者和自认为高尚的和平主义者所束缚。但是，在日常生活方面，英国的陈规陋习并不能抵御现代世界的攻击：世俗价值观的加速分解批判着主流生活方式的方方面面，进而产生了深刻的革命倾向。英国青年的斗争必须与英国工人的斗争联系起来，英国的工人运动和野猫罢工仍然是世界上最激烈的斗争之一。只有找到共同的观点，这两场斗争才有可能取得胜利。工党的垮台是有利于促成这种联盟的另一个因素。他们的相遇会引发激烈的爆炸；相比之下，阿姆斯特丹的普罗沃运动只是过家家。只有这样，真正的革命运动才能产生，才能满足实际的需要。</p><p style="white-space: normal;box-sizing: border-box;"><br style="box-sizing: border-box;"/></p><p style="white-space: normal;box-sizing: border-box;">（下一段对日本境况的描写被普遍认为失实，故不予翻译）</p><p style="white-space: normal;box-sizing: border-box;"><br/></p><p style="white-space: normal;box-sizing: border-box;text-align: center;">（全文终）</p></section></section></section><section powered-by="xiumi.us" style="padding-right: 7px;padding-left: 7px;box-sizing: border-box;"><section class="mp_profile_iframe_wrp"><mpprofile class="js_uneditable custom_select_card mp_profile_iframe" data-alias="tocontinuetostruggle" data-from="0" data-headimg="http://mmbiz.qpic.cn/mmbiz_png/kPsz6Up3kibnib3k66icQDogTSYFdEYxZlVDSSXxja4Ay0rqibQcicK5qgwrUv0ck0wzWeBH4o6pwmmiclBYjLTtWNhg/0?wx_fmt=png" data-id="Mzg3NTA4OTQ4OQ==" data-nickname="国际英语角" data-pluginname="mpprofile" data-signature="国际同文馆"></mpprofile></section></section><section powered-by="xiumi.us" style="font-size: 12px;text-align: center;box-sizing: border-box;"><p style="box-sizing: border-box;"><span style="color: transparent;background-image: linear-gradient(to top, rgb(252, 197, 228) 0%, rgb(253, 163, 75) 15%, rgb(255, 120, 130) 35%, rgb(200, 105, 158) 52%, rgb(112, 70, 170) 71%, rgb(12, 29, 184) 87%, rgb(2, 15, 117) 100%);display: inline-block;-webkit-background-clip: text;box-sizing: border-box;"><strong style="box-sizing: border-box;">“TO CONTINUE，</strong><strong style="box-sizing: border-box;">TO STRUGGLE”</strong></span></p></section><section powered-by="xiumi.us" style="font-size: 12px;color: rgb(108, 108, 108);letter-spacing: 25px;box-sizing: border-box;"><p style="text-align: center;white-space: normal;box-sizing: border-box;"><span style="color: transparent;background-image: linear-gradient(to top, rgb(252, 197, 228) 0%, rgb(253, 163, 75) 15%, rgb(255, 120, 130) 35%, rgb(200, 105, 158) 52%, rgb(112, 70, 170) 71%, rgb(12, 29, 184) 87%, rgb(2, 15, 117) 100%);display: inline-block;-webkit-background-clip: text;box-sizing: border-box;"> <strong style="box-sizing: border-box;">國际同文馆</strong></span><br style="box-sizing: border-box;"/></p></section></section><p><br/></p>
+</div>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+            var first_sceen__time = (+new Date());
+            if ("" == 1 && document.getElementById('js_content')) {
+              document.getElementById('js_content').addEventListener("selectstart",function(e){ e.preventDefault(); });
+            }
+          </script>
+<div id="js_sponsor_ad_area"></div>
+</div>
+<div class="article-tag__error-tips" id="js_tags_preview_toast" style="display: none;">预览时标签不可点</div>
+<div class="appmsg_card_context album_read_card" id="js_album_keep_read" style="display: none;">
+<div class="album_read_hd weui-flex" id="js_album_directory" role="button">
+<div class="album_read_source">收录于合集 <span class="weui-link wx_tap_link js_album_directory__name">#<span id="js_album_keep_read_title"></span></span></div>
+<span class="weui-btn__word-wrp wx_tap_link js_album_directory__size"> <span id="js_album_keep_read_size"></span><span class="weui-hidden_abs">个</span></span>
+</div>
+<div class="album_read_bd weui-flex">
+<span class="album_read_nav_item album_read_nav_prev weui-flex__item wx_tap_link js_wx_tap_highlight" id="js_album_prev" role="button">
+<span class="album_read_nav_inner">
+<span class="album_read_nav_btn">上一篇</span>
+<span class="album_read_nav_title">
+<span class="album_read_nav_title_inner" id="js_album_keep_read_pre_title"></span>
+</span>
+</span>
+</span>
+<span class="album_read_nav_item album_read_nav_next weui-flex__item wx_tap_link js_wx_tap_highlight" id="js_album_next" role="button">
+<span class="album_read_nav_inner">
+<span class="album_read_nav_btn">下一篇</span>
+<span class="album_read_nav_title">
+<span class="album_read_nav_title_inner" id="js_album_keep_read_next_title"></span>
+</span>
+</span>
+</span>
+</div>
+</div>
+<div class="rich_media_tool_area" id="content_bottom_area"></div>
+</div>
+</div>
+<div class="rich_media_area_primary sougou" id="sg_tj" style="display:none"></div>
+<div class="rich_media_area_extra">
+<div class="rich_media_area_extra_inner">
+<div class="wx_follow_container" id="js_like_profile_container"></div>
+<div class="related_container" id="js_related_container"></div>
+<div id="page_bottom_area"></div>
+</div>
+</div>
+<div class="qr_code_pc_outer" id="js_pc_qr_code" style="display:none;">
+<div class="qr_code_pc_inner">
+<div class="qr_code_pc">
+<img class="qr_code_pc_img" id="js_pc_qr_code_img" src=""/>
+<p>微信扫一扫<br/>关注该公众号</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="comment_primary_emotion_panel_wrp" id="js_emotion_panel_pc" style="display: none">
+<div class="comment_primary_emotion_panel">
+<ul class="comment_primary_emotion_list_pc" id="js_emotion_list_pc">
+</ul>
+</div>
+</div>
+<div class="weui-dialog__wrp" id="js_alert_panel" style="display:none;">
+<div class="weui-mask"></div>
+<div class="weui-dialog">
+<div class="weui-dialog__bd" id="js_alert_content"></div>
+<div class="weui-dialog__ft">
+<a class="weui-dialog__btn weui-dialog__btn_default" href="javascript:;" id="js_alert_confirm">知道了</a>
+</div>
+</div>
+</div>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+  window.img_popup = 1; // 全量小程序弹窗
+</script>
+<div class="weui-desktop-popover weui-desktop-popover_pos-up-center weui-desktop-popover_img-text" id="js_pc_weapp_code" style="display: none;">
+<div class="weui-desktop-popover__content">
+<div class="weui-desktop-popover__desc">
+<img id="js_pc_weapp_code_img" src=""/>
+          微信扫一扫<br/>使用小程序<span id="js_pc_weapp_code_des"></span>
+</div>
+</div>
+</div>
+<div aria-labelledby="js_minipro_dialog_head" aria-modal="true" id="js_minipro_dialog" role="dialog" style="display:none;" tabindex="0">
+<div class="weui-mask"></div>
+<div class="weui-dialog weui-dialog_link">
+<div class="weui-dialog__hd">
+<strong class="weui-dialog__title" id="js_minipro_dialog_head" tabindex="0"></strong>
+</div>
+<div class="weui-dialog__bd" id="js_minipro_dialog_body"></div>
+<div class="weui-dialog__ft">
+<a class="weui-dialog__btn weui-dialog__btn_default" href="javascript:void(0);" id="js_minipro_dialog_cancel" role="button">取消</a>
+<a class="weui-dialog__btn weui-dialog__btn_primary" href="javascript:void(0);" id="js_minipro_dialog_ok" role="button">允许</a>
+</div>
+</div>
+</div>
+<div aria-labelledby="js_link_dialog_body" aria-modal="true" id="js_link_dialog" role="dialog" style="display:none;" tabindex="0">
+<div class="weui-mask"></div>
+<div class="weui-dialog weui-dialog_link">
+<div class="weui-dialog__hd">
+<strong class="weui-dialog__title" id="js_link_dialog_head" tabindex="0"></strong>
+</div>
+<div class="weui-dialog__bd" id="js_link_dialog_body" tabindex="0"></div>
+<div class="weui-dialog__ft">
+<a class="weui-dialog__btn weui-dialog__btn_default" href="javascript:void(0);" id="js_link_dialog_cancel" role="button">取消</a>
+<a class="weui-dialog__btn weui-dialog__btn_primary" href="javascript:void(0);" id="js_link_dialog_ok" role="button">允许</a>
+</div>
+</div>
+</div>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+window.logs.pagetime.page_begin = Date.now();
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+var __DEBUGINFO = {
+  debug_js: "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/biz_wap/debug/console5df5b9.js",
+  safe_js: "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/biz_wap/safe/moonsafe5df5b9.js",
+  res_list: []
+};
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+(function () {
+  var totalCount = 0,
+    finishCount = 0;
+
+  function _loadVConsolePlugin() {
+    window.vConsole = new window.VConsole();
+    while (window.vConsolePlugins.length > 0) {
+      var p = window.vConsolePlugins.shift();
+      window.vConsole.addPlugin(p);
+    }
+    // 视频落地页h5有时候不会触发onload事件，导致vConsole无法渲染，这里手动强制渲染vConsole @baakqiu
+    if (!window.vConsole.isInited) {
+      window.vConsole._render();
+      window.vConsole._mockTap();
+      window.vConsole._bindEvent();
+      window.vConsole._autoRun();
+    }
+  }
+
+  function _addVConsole(uri, cb) {
+    totalCount++;
+    var node = document.createElement('SCRIPT');
+    node.type = 'text/javascript';
+    node.src = uri;
+    node.setAttribute('nonce', '187699337');
+    if (cb) {
+      node.onload = cb;
+    }
+    document.getElementsByTagName('head')[0].appendChild(node);
+  }
+  if (
+    (document.cookie && document.cookie.indexOf('vconsole_open=1') > -1)
+    || location.href.indexOf('vconsole=1') > -1
+  ) {
+    window.vConsolePlugins = [];
+    _addVConsole('//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/vconsole/3.2.2/vconsole.min5df5b8.js', function () {
+      // _addVConsole('plugin/vconsole-sources/1.0.1/vconsole-sources.min.js');
+      _addVConsole('//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/vconsole/plugin/vconsole-mpopt/1.0.1/vconsole-mpopt5df5b8.js', _loadVConsolePlugin);
+    });
+  }
+
+  // // 广告iframe预加载
+  try {
+    var adIframeUrl = localStorage.getItem('__WXLS_ad_iframe_url');
+    if (window === top) {
+      if (adIframeUrl) {
+        if (navigator.userAgent.indexOf('iPhone') > -1) {
+          var img = new Image();
+          img.src = adIframeUrl;
+        } else {
+          var link = document.createElement('link');
+          link.rel = 'prefetch';
+          link.href = adIframeUrl;
+          document.getElementsByTagName('head')[0].appendChild(link);
+        }
+      }
+    }
+  } catch (err) {
+
+  }
+
+})();
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">var __INLINE_SCRIPT__=function(){"use strict";var e=function(e,t,n,i){var _=new Date(1e3*(1*t)),o=function(e){return"0".concat(e).slice(-2)},r=_.getFullYear()+"-"+o(_.getMonth()+1)+"-"+o(_.getDate())+" "+o(_.getHours())+":"+o(_.getMinutes());i&&(i.innerText=r)};if(!window.__second_open__){e(0,"1651674021",0,document.getElementById("publish_time")),window.__setPubTime=e}return e}();</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+//兼容 IE
+if (!window.console) window.console = { log: function() {} };
+// 图片占位 @ekili
+if (typeof getComputedStyle == 'undefined') {
+  if (document.body.currentStyle) {
+    window.getComputedStyle = function(el) {
+      return el.currentStyle;
+    }
+  } else {
+    window.getComputedStyle = {};
+  }
+}
+// 图片和视频预加载逻辑，记得H5和秒开要对齐逻辑
+(function(){
+  window.__zoom = 1;
+
+  var ua = navigator.userAgent.toLowerCase();
+  var re = new RegExp("msie ([0-9]+[\.0-9]*)");
+  var version;
+  if (re.exec(ua) != null) {
+    version = parseInt(RegExp.$1);
+  }
+  var isIE = false;
+  if (typeof version != 'undefined' && version >= 6 && version <= 9) {
+    isIE = true;
+  }
+  var bodyWidth = '' * 1;
+  if (bodyWidth) {
+    var styles = getComputedStyle(document.getElementById('page-content'));
+    bodyWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+  }
+  var getMaxWith = function () {
+    var container = document.getElementById('img-content');
+    var max_width = container.offsetWidth;
+    !max_width && bodyWidth && (max_width = bodyWidth);
+    var container_padding = 0;
+    var container_style = getComputedStyle(container);
+    container_padding = parseFloat(container_style.paddingLeft) + parseFloat(container_style.paddingRight);
+    max_width -= container_padding;
+    if (!max_width) {
+      max_width = window.innerWidth - 30;      //防止offsetTop不可用，30为padding
+    }
+    return max_width;
+  };
+  var getParentWidth = function (dom) {
+    var parent_width = 0;
+    var parent = dom.parentNode;
+    var outerWidth = 0;
+    while (true) {
+      if (!parent || parent.nodeType != 1) break;
+      var parent_style = getComputedStyle(parent);
+      if (!parent_style) break;
+      parent_width = parent.clientWidth - parseFloat(parent_style.paddingLeft) - parseFloat(parent_style.paddingRight) - outerWidth;
+      if (parent_width > 0) break;
+      outerWidth += parseFloat(parent_style.paddingLeft) + parseFloat(parent_style.paddingRight) + parseFloat(parent_style.marginLeft) + parseFloat(parent_style.marginRight) + parseFloat(parent_style.borderLeftWidth) + parseFloat(parent_style.borderRightWidth);
+      parent = parent.parentNode;
+    }
+    return parent_width;
+  }
+  var getOuterW = function (dom) {
+    var style = getComputedStyle(dom),
+      w = 0;
+    if (!!style) {
+      w = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+    }
+    return w;
+  };
+  var getOuterH = function (dom) {
+    var style = getComputedStyle(dom),
+      h = 0;
+    if (!!style) {
+      h = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+    }
+    return h;
+  };
+  var insertAfter = function (dom, afterDom) {
+    var _p = afterDom.parentNode;
+    if (!_p) {
+      return;
+    }
+    if (_p.lastChild === afterDom) {
+      _p.appendChild(dom);
+    } else {
+      _p.insertBefore(dom, afterDom.nextSibling);
+    }
+  };
+  var getQuery = function (name, url) {
+    //参数：变量名，url为空则表从当前页面的url中取
+    var u = arguments[1] || window.location.search,
+      reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"),
+      r = u.substr(u.indexOf("\?") + 1).match(reg);
+    return r != null ? r[2] : "";
+  };
+
+  /**
+    * 设置图片size
+    *
+    * @param {HTMLElement} item             图片元素
+    * @param {number} widthNum         宽度数值
+    * @param {string} widthUnit        宽度单位
+    * @param {number} ratio            宽高比
+    * @param {boolean} breakParentWidth 是否突破父元素宽度(父元素是否被撑大)
+    */
+  function setImgSize(item, widthNum, widthUnit, ratio, breakParentWidth) {
+    setTimeout(function () {
+      var img_padding_border = getOuterW(item) || 0;
+      var img_padding_border_top_bottom = getOuterH(item) || 0;
+
+      var isAccessibilityKey = 'isMpUserAccessibility';
+      var isAccessMode = window.localStorage.getItem(isAccessibilityKey);
+
+      // 如果设置的宽度超过了父元素最大宽度，则取父元素宽度
+      if (widthNum > getParentWidth(item) && !breakParentWidth) {
+        widthNum = getParentWidth(item);
+      }
+
+      height = (widthNum - img_padding_border) * ratio + img_padding_border_top_bottom;
+
+      if (isIE || '0' === '1' || '' === '1' || isAccessMode === '1') { // 判一下是不是漫画原创，如果是，不走懒加载
+        var url = item.getAttribute('data-src');
+        item.src = url;
+
+        // 不走懒加载但是需要跟懒加载一样去除占位高度
+        item.style.height = 'auto';
+      } else {
+        if (parseFloat(widthNum, 10) > 40 && height > 40 && breakParentWidth) {
+          item.className += ' img_loading';
+        }
+        item.src = "data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==";
+        widthNum !== 'auto' && (item.style.cssText += ";width: " + widthNum + widthUnit + " !important;");
+        widthNum !== 'auto' && (item.style.cssText += ";height: " + height + widthUnit + " !important;");
+      }
+    }, 10);
+  }
+  // 图片和视频预加载逻辑，记得H5和秒开要对齐逻辑
+  (function () {
+    var images = document.getElementsByTagName('img');
+    var length = images.length;
+    var max_width = getMaxWith();
+    for (var i = 0; i < length; ++i) {
+      if (window.__second_open__ && images[i].getAttribute('__sec_open_place_holder__')) {
+        continue;
+      }
+      var imageItem = images[i];
+      var src_ = imageItem.getAttribute('data-src');
+      var realSrc = imageItem.getAttribute('src');
+      if (!src_ || realSrc) continue;
+      // 图片原始宽度
+      var originWidth = imageItem.getAttribute('data-w');
+      var ratio_ = 1 * imageItem.getAttribute('data-ratio');
+
+      var height = 100;
+      if (ratio_ && ratio_ > 0) {
+        var parent_width = getParentWidth(imageItem) || max_width;
+        var initWidth = imageItem.style.width || imageItem.getAttribute('width') || originWidth || parent_width;
+        initWidth = parseFloat(initWidth, 10) > max_width ? max_width : initWidth;
+        // 有attribute或style中的width，写入_width属性，在图片加载完成时写入img标签
+        if (initWidth) {
+          imageItem.setAttribute('_width', !isNaN(initWidth * 1) ? initWidth + 'px' : initWidth);
+        }
+        // 使用百分比，则计算出像素宽度
+        if (typeof initWidth === 'string' && initWidth.indexOf('%') !== -1) {
+          initWidth = parseFloat(initWidth.replace('%', ''), 10) / 100 * parent_width;
+        }
+        // 使用auto，就是原始宽度
+        if (initWidth === 'auto') {
+          initWidth = originWidth;
+        }
+
+        var widthNum;
+        var widthUnit;
+        if (initWidth === 'auto') {
+          widthNum = 'auto';
+        } else {
+          var res = /^(\d+(?:\.\d+)?)([a-zA-Z%]+)?$/.exec(initWidth);
+          widthNum = res && res.length >= 2 ? res[1] : 0;
+          widthUnit = res && res.length >= 3 && res[2] ? res[2] : 'px';
+        }
+
+        // 试探一下parent宽度在设置了图片的大小之后是否会变化
+        setImgSize(imageItem, widthNum, widthUnit, ratio_, true);
+        // 真正设置宽高
+        (function (item, widthNumber, unit, ratio) {
+          setTimeout(function () {
+            setImgSize(item, widthNumber, unit, ratio, false);
+          });
+        })(imageItem, widthNum, widthUnit, ratio_);
+      } else {
+        imageItem.style.cssText += ";visibility: hidden !important;";
+      }
+  }
+  })();
+  window.__videoDefaultRatio = 16 / 9;//默认值是16/9
+  window.__getVideoWh = function (dom) {
+    var max_width = getMaxWith(),
+      width = max_width,
+      ratio_ = dom.getAttribute('data-ratio') * 1,//mark16/9
+      arr = [4 / 3, 16 / 9],
+      ret = arr[0],
+      abs = Math.abs(ret - ratio_);
+    if (!ratio_) { // 没有比例
+      if (dom.getAttribute("data-mpvid")) { // MP视频
+        ratio_ = 16 / 9;
+      } else { // 非MP视频，需要兼容历史图文
+        ratio_ = 4 / 3;
+      }
+    } else { // 有比例，则判断更接近4/3还是更接近16/9
+      for (var j = 1, jl = arr.length; j < jl; j++) {
+        var _abs = Math.abs(arr[j] - ratio_);
+        if (_abs < abs) {
+          abs = _abs;
+          ret = arr[j];
+        }
+      }
+      ratio_ = ret;
+    }
+
+    var parent_width = getParentWidth(dom) || max_width,
+      width = width > parent_width ? parent_width : width,
+      outerW = getOuterW(dom) || 0,
+      outerH = getOuterH(dom) || 0,
+      videoW = width - outerW,
+      videoH = videoW / ratio_,
+      speedDotH = 12, // 播放器新样式的进度条在最下面，为了避免遮住拖动的点点，需要额外设置高一些
+      height = videoH + outerH + speedDotH;
+
+    return { w: Math.ceil(width), h: Math.ceil(height), vh: videoH, vw: videoW, ratio: ratio_, sdh: speedDotH };
+  };
+
+  // 图片和视频预加载逻辑，记得H5和秒开要对齐逻辑
+  (function () {
+    var iframe = document.getElementsByTagName('iframe');
+    for (var i = 0, il = iframe.length; i < il; i++) {
+      if (window.__second_open__ && iframe[i].getAttribute('__sec_open_place_holder__')) {
+        continue;
+      }
+      var a = iframe[i];
+      var src_ = a.getAttribute('src') || a.getAttribute('data-src') || "";
+
+      if (!/^http(s)*\:\/\/v\.qq\.com\/iframe\/(preview|player)\.html\?/.test(src_)
+        && !/^http(s)*\:\/\/mp\.weixin\.qq\.com\/mp\/readtemplate\?t=pages\/video_player_tmpl/.test(src_)
+      ) {
+        continue;
+      }
+      var vid = getQuery("vid", src_);
+      if (!vid) {
+        continue;
+      }
+      vid = vid.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, "");//清除前后空格
+      a.removeAttribute('src');
+      a.style.display = "none";
+      var obj = window.__getVideoWh(a),
+        videoPlaceHolderSpan = document.createElement('span'),
+        videoPlayerIconSpan = document.createElement('span'),
+        mydiv = document.createElement('img');
+
+      videoPlaceHolderSpan.className = "js_img_loading db";
+      videoPlaceHolderSpan.setAttribute("data-vid", vid);
+      // videoPlaceHolderSpan.style.display = 'block';
+
+      videoPlayerIconSpan.className = 'wx_video_context db'; // 预加载的视频封面图占位
+      videoPlayerIconSpan.style.display = 'none';
+      videoPlayerIconSpan.innerHTML = '<span class="wx_video_thumb_primary"></span><button class="wx_video_play_btn">播放</button><span class="wx_video_mask"></span>'; // 曝光后设置这里img的src
+
+      mydiv.className = "img_loading";
+
+      mydiv.src = "data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==";
+      // mydiv.style.cssText += ';height:100%;width:100%;';
+      // mydiv.setAttribute("data-vid",vid);
+      videoPlaceHolderSpan.style.cssText = "width: " + obj.w + "px !important;";
+      mydiv.style.cssText += ";width: " + obj.w + "px";
+      videoPlaceHolderSpan.appendChild(videoPlayerIconSpan);
+      videoPlaceHolderSpan.appendChild(mydiv);
+
+      insertAfter(videoPlaceHolderSpan, a); // 在视频后面插入占位
+
+      /* var parentNode = a.parentNode;
+      var copyIframe = a;
+      var index = i; */
+
+      // 由于视频需要加一个转载的来源，所以这里需要提前设置高度
+      function ajax(obj) {
+        var url = obj.url;
+        var xhr = new XMLHttpRequest();
+
+        var data = null;
+        if (typeof obj.data == "object") {
+          var d = obj.data;
+          data = [];
+          for (var k in d) {
+            if (d.hasOwnProperty(k)) {
+              data.push(k + "=" + encodeURIComponent(d[k]));
+            }
+          }
+          data = data.join("&");
+        } else {
+          data = typeof obj.data == 'string' ? obj.data : null;
+        }
+
+        xhr.open('POST', url, true);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState == 4) {
+            if (xhr.status >= 200 && xhr.status < 400) {
+              obj.success && obj.success(xhr.responseText);
+            } else {
+              obj.error && obj.error(xhr);
+            }
+            obj.complete && obj.complete();
+            obj.complete = null;
+          }
+        };
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+        xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+        xhr.send(data);
+      }
+
+      var mid = "" || "" || "2247485091";
+      var biz = "" || "Mzg3NTA4OTQ4OQ==";
+      var sessionid = "" || "svr_fcc847668b5";
+      var idx = "";
+
+      (function sendReq(parentNode, copyIframe, index, vid) {
+        ajax({
+          url: '/mp/videoplayer?vid=' + vid + '&mid=' + mid + '&idx=1&__biz=' + biz + '&sessionid=' + sessionid + '&f=json',
+          type: "GET",
+          dataType: 'json',
+          success: function (json) {
+            var ret = JSON.parse(json || '{}');
+            var ori = ret.ori_status;
+            var hit_biz_headimg = ret.hit_biz_headimg + '/64';
+            var hit_nickname = ret.hit_nickname;
+            var hit_username = ret.hit_username;
+            var sourceBiz = ret.source_encode_biz;
+
+            var selfUserName = "gh_ebe593ba9912";
+
+            if (ori === 2 && selfUserName !== hit_username) {
+              var videoBar = document.createElement('div');
+              var videoBarHtml = '<div class="wx-edui-video_source_link js_wx_tap_highlight wx_tap_card" id="' + (hit_username + index) + '" data-hit-username="' + hit_username + '" data-hit-biz="' + sourceBiz + '">';
+              videoBarHtml += '<div class="wx-edui-video_source_word">以下视频来源于</div>';
+              videoBarHtml += '<div class="wx-edui-video_account_info">';
+              videoBarHtml += '<div class="wx-edui-video_account_avatar" id="' + (hit_biz_headimg + index) + '" data-src="' + hit_biz_headimg + '"></div>';
+              videoBarHtml += '<div class="wx-edui-video_account_name">' + hit_nickname + '</div>';
+              videoBarHtml += '<i class="wx-edui-video_account_arrow"></i>';
+              videoBarHtml += '</div>';
+              videoBarHtml += '<div class="wx-edui-video_source_link__layer_mask"></div>';
+              videoBarHtml += '</div>';
+              videoBar.innerHTML = videoBarHtml;
+              var spanContainer = document.getElementById('js_mp_video_container_' + index);
+              if (spanContainer) {
+                spanContainer.parentNode.insertBefore(videoBar, spanContainer);
+              } else if (parentNode.contains && parentNode.contains(copyIframe)) {
+                parentNode.insertBefore(videoBar, copyIframe);
+              } else {
+                parentNode.insertBefore(videoBar, parentNode.firstElementChild);
+              }
+              var avatorEle = document.getElementById(hit_biz_headimg + index);
+              var avatorSrc = avatorEle.dataset.src;
+              console.log('avatorSrc' + avatorSrc);
+              if (ret.hit_biz_headimg) {
+                avatorEle.style.backgroundImage = 'url(' + avatorSrc + ')';
+              }
+            }
+          },
+          error: function (xhr) {
+          }
+        });
+      })(a.parentNode, a, i, vid);
+
+      a.style.cssText += ";width: " + obj.w + "px !important;";
+      a.setAttribute("width", obj.w);
+      if (window.__zoom != 1) {
+        a.style.display = "block";
+        videoPlaceHolderSpan.style.display = "none";
+        a.setAttribute("_ratio", obj.ratio);
+        a.setAttribute("_vid", vid);
+      } else {
+        videoPlaceHolderSpan.style.cssText += "height: " + obj.h + "px !important;";
+        mydiv.style.cssText += "height: " + obj.h + "px !important;";
+        a.style.cssText += "height: " + obj.h + "px !important;";
+        a.setAttribute("height", obj.h);
+      }
+      a.setAttribute("data-vh", obj.vh);
+      a.setAttribute("data-vw", obj.vw);
+      if (a.getAttribute("data-mpvid")) {
+        a.setAttribute("data-src", location.protocol + "//mp.weixin.qq.com/mp/readtemplate?t=pages/video_player_tmpl&auto=0&vid=" + vid);
+      } else {
+        a.setAttribute("data-src", location.protocol + "//v.qq.com/iframe/player.html?vid=" + vid + "&width=" + obj.vw + "&height=" + obj.vh + "&auto=0");
+      }
+    }
+  })();
+
+  (function () {
+    if (window.__zoom != 1) {
+      if (!window.__second_open__) {
+        document.getElementById('page-content').style.zoom = window.__zoom;
+        var a = document.getElementById('activity-name');
+        var b = document.getElementById('meta_content');
+        if (!!a) {
+          a.style.zoom = 1 / window.__zoom;
+        }
+        if (!!b) {
+          b.style.zoom = 1 / window.__zoom;
+        }
+      }
+      var images = document.getElementsByTagName('img');
+      for (var i = 0, il = images.length; i < il; i++) {
+        if (window.__second_open__ && images[i].getAttribute('__sec_open_place_holder__')) {
+          continue;
+        }
+        images[i].style.zoom = 1 / window.__zoom;
+      }
+      var iframe = document.getElementsByTagName('iframe');
+      for (var i = 0, il = iframe.length; i < il; i++) {
+        if (window.__second_open__ && iframe[i].getAttribute('__sec_open_place_holder__')) {
+          continue;
+        }
+        var a = iframe[i];
+        a.style.zoom = 1 / window.__zoom;
+        var src_ = a.getAttribute('data-src') || "";
+        if (!/^http(s)*\:\/\/v\.qq\.com\/iframe\/(preview|player)\.html\?/.test(src_)
+          && !/^http(s)*\:\/\/mp\.weixin\.qq\.com\/mp\/readtemplate\?t=pages\/video_player_tmpl/.test(src_)
+        ) {
+          continue;
+        }
+        var ratio = a.getAttribute("_ratio");
+        var vid = a.getAttribute("_vid");
+        a.removeAttribute("_ratio");
+        a.removeAttribute("_vid");
+        var vw = a.offsetWidth - (getOuterW(a) || 0);
+        var vh = vw / ratio;
+        var h = vh + (getOuterH(a) || 0)
+        a.style.cssText += "height: " + h + "px !important;"
+        a.setAttribute("height", h);
+        if (/^http(s)*\:\/\/v\.qq\.com\/iframe\/(preview|player)\.html\?/.test(src_)) {
+          a.setAttribute("data-src", location.protocol + "//v.qq.com/iframe/player.html?vid=" + vid + "&width=" + vw + "&height=" + vh + "&auto=0");
+        }
+        a.style.display = "none";
+        var parent = a.parentNode;
+        if (!parent) {
+          continue;
+        }
+        for (var j = 0, jl = parent.children.length; j < jl; j++) {
+          var child = parent.children[j];
+          if (child.className.indexOf("img_loading") >= 0 && child.getAttribute("data-vid") == vid) {
+            child.style.cssText += "height: " + h + "px !important;";
+            child.style.display = "";
+          }
+        }
+      }
+    }
+  })();
+})();
+</script><script nonce="187699337" reportloaderror="" type="text/javascript">!function(){"use strict";var t={defaultContentTpl:'<span class="js_img_loading db" style="width:#width#px !important;height:#height#px !important;text-indent: 0"><img style="width:#width#px !important;height:#height#px !important;border-radius:#borderRadius#px;" class="img_loading" src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQImWNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg=="></span>',config:[{querySelector:"redpacketcover",genId:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return decodeURIComponent(t.node.getAttribute("data-coveruri")||"")},calW:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return.7854*t.parentWidth},calH:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return this.calW({parentWidth:t.parentWidth})/.73346+27+37},replaceContentCssText:"",appendContentCssText:"display: inline-block;position: relative;",outerContainerLeft:'<section style="display:block;font-size:0;text-align:center;margin:16px 0;">',outerContainerRight:"</section>"},{querySelector:"qqmusic",genId:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return(t.node.getAttribute("musicid")||"").replace(/^\s/,"").replace(/\s$/,"")+"_"+t.index},calW:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return 1*t.parentWidth},calH:function(){return 88},replaceContentCssText:"",appendContentCssText:"margin:16px 0;diplay:block;",outerContainerLeft:"",outerContainerRight:""},{querySelector:"mpvoice",genId:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},e=decodeURIComponent(t.node.getAttribute("voice_encode_fileid")||"").replace(/^\s/,"").replace(/\s$/,"");return e+"_"+t.index},calW:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return 1*t.parentWidth},calH:function(){return 122},replaceContentCssText:"",appendContentCssText:"margin:16px 0;diplay:block;",outerContainerLeft:"",outerContainerRight:""},{querySelector:"mppoi",genId:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return t.node.getAttribute("data-id")||""},calW:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return 1*t.parentWidth},calH:function(){return 219},replaceContentCssText:"",appendContentCssText:"margin:16px 0;diplay:block;",outerContainerLeft:"",outerContainerRight:""},{querySelector:"mpsearch",genId:function(){return decodeURIComponent("mpsearch")},calW:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return 1*t.parentWidth},calH:function(){return 100},replaceContentCssText:"",appendContentCssText:"margin:16px 0;diplay:block;",outerContainerLeft:"",outerContainerRight:""},{querySelector:"mpvideosnap",genId:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},e=t.node.getAttribute("data-type")||"video";return"live"===e?decodeURIComponent(t.node.getAttribute("data-noticeid")||""):decodeURIComponent(t.node.getAttribute("data-id")||"")},calW:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},e=t.node.getAttribute("data-type")||"video",n=t.node.getAttribute("data-width")||"",r=t.node.getAttribute("data-height")||"";if("live"===e||"topic"===e)return t.parentWidth;if("image"===e)return.665*t.parentWidth;var i=1,o=0,a=0,d=!1;return 1===(i=n/r)||i===3/4||(i===4/3||i===16/9?d=!0:i<3/4?i=3/4:i>1&&i<4/3?i=1:i>4/3?d=!0:("number"!=typeof i||Object.is(i,NaN))&&(i=1)),t.node.setAttribute("data-datio",i),t.node.setAttribute("data-isHorizontal",d),o=(a=!0===d?t.parentWidth:window.innerWidth<1024?.65*window.innerWidth:.65*t.parentWidth)/i,t.node.setAttribute("data-computedWidth",a),t.node.setAttribute("data-computedHeight",o),a},calH:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},e=t.node.getAttribute("data-desc")||"",n=t.node.getAttribute("data-type")||"video",r=t.node.getAttribute("data-computedHeight")||"";switch(n){case"live":return e?152:116;case"topic":return 201;case"image":return e?this.calW(t)+44+35+27:this.calW(t)+44+35;case"video":return parseFloat(r)}},getBorderRadius:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},e=t.node.getAttribute("data-type")||"video";return"video"===e?4:8},replaceContentCssText:"",appendContentCssText:"margin:16px auto;diplay:block;",outerContainerLeft:"",outerContainerRight:""},{querySelector:"mp-wxaproduct",genId:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return decodeURIComponent(t.node.getAttribute("data-wxaproduct-productid")||"")},calW:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return 1*t.parentWidth},calH:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},e=t.node.getAttribute("data-wxaproduct-cardtype")||"";return"mini"===e?124:466},replaceContentCssText:"",appendContentCssText:"margin:16px 0;diplay:block;",outerContainerLeft:"",outerContainerRight:""},{querySelector:"mpprofile",genId:function(t){return t.node.getAttribute("data-id")||""},calW:function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};return 1*t.parentWidth},calH:function(){return 143},replaceContentCssText:"",appendContentCssText:"margin:16px 0 16px;diplay:block;",outerContainerLeft:"",outerContainerRight:""}]};!function(){var t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};if("function"==typeof document.querySelectorAll)for(var e={maxWith:document.getElementById("img-content").getBoundingClientRect().width,idAttr:"data-preloadingid"},n=0,r=t.config.length;n<r;n++)for(var i=t.config[n],o=document.querySelectorAll(i.querySelector),a=0,d=o.length;a<d;a++){var c=o[a],u=c.parentNode.getBoundingClientRect().width;if(u=Math.min(u,e.maxWith),!c.getAttribute("has-insert-preloading")){var l=i.calW({parentWidth:u,node:c}),p=i.calH({parentWidth:u,node:c}),g=i.genId({index:a,node:c}),s="function"==typeof i.getBorderRadius?i.getBorderRadius({index:a,node:c}):8,h=t.defaultContentTpl.replace(/#height#/g,p).replace(/#width#/g,l).replace(/#borderRadius#/g,s),C=document.createElement("div");if(C.innerHTML=h,i.replaceContentCssText){var f=i.replaceContentCssText.replace(/#height#/g,p).replace(/#width#/g,l);C.firstChild.style.cssText=f}else i.appendContentCssText&&(C.firstChild.style.cssText+=i.appendContentCssText);var v=i.outerContainerLeft+C.innerHTML+i.outerContainerRight;C.innerHTML=v,C.firstChild.setAttribute(e.idAttr,g),c.parentNode.insertBefore(C.firstChild,c.nextSibling),c.setAttribute("has-insert-preloading","1")}}}(t)}();</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+// 白名单的class不能去除
+var whiteList = 'rich_pages,blockquote_info,blockquote_biz,blockquote_other,blockquote_article,js_jump_icon,h5_image_link,js_banner_container,js_list_container,js_cover,js_tx_video_container,js_product_err_container,js_product_loop_content,js_product_container,img_loading,list-paddingleft-1,list-paddingleft-2,list-paddingleft-3,selectTdClass,noBorderTable,ue-table-interlace-color-single,ue-table-interlace-color-double,__bg_gif,weapp_text_link,weapp_image_link,js_img_loading,wx_video_context,db,wx_video_thumb_primary,wx_video_play_btn,wx_video_mask,qqmusic_area,tc,tips_global,unsupport_tips,qqmusic_wrp,appmsg_card_context,appmsg_card_active,wx_tap_card,js_wx_tap_highlight,wx_tap_link,qqmusic_bd,play_area,icon_qqmusic_switch,pic_qqmusic_default,qqmusic_thumb,access_area,qqmusic_songname,qqmusic_singername,qqmusic_source,js_audio_frame,share_audio_context,flex_context,pages_reset,share_audio_switch,icon_share_audio_switch,share_audio_info,flex_bd,share_audio_title,share_audio_tips,share_audio_progress_wrp,share_audio_progress,share_audio_progress_inner,share_audio_progress_buffer,share_audio_progress_loading,share_audio_progress_loading_inner,share_audio_progress_handle,share_audio_desc,share_audio_length_current,share_audio_length_total,video_iframe,vote_iframe,js_editor_vote_card,res_iframe,card_iframe,js_editor_card,weapp_display_element,js_weapp_display_element,weapp_card,app_context,weapp_card_bd,weapp_card_profile,radius_avatar,weapp_card_avatar,weapp_card_nickname,weapp_card_info,weapp_card_title,weapp_card_thumb_wrp,weapp_card_ft,weapp_card_logo,js_pay_btn,pay,pay__mask,wx_video_loading,js_redpacketcover,js_uneditable,js_uneditablemouseover,js_editor_qqmusic,js_editor_audio,ct_geography_loc_tip,js_poi_entry,subsc_context,subsc_btn,reset_btn,js_subsc_btn,icon_subsc'.split(',');
+var qaClassPrefix = 'qa__';
+var whiteListReg = [
+  new RegExp("^wxw"),
+  new RegExp("^weui"),
+  new RegExp("^appmsg"),
+  new RegExp("^audio"),
+  new RegExp("^music"),
+  new RegExp("^cps_inner"),
+  new RegExp("^bizsvr_"), // 后台压缩样式
+  new RegExp("^code-snippet"), // 代码块样式
+  new RegExp("^" + qaClassPrefix), // 问答卡片样式
+  new RegExp("^wx-edui-"), // 图文编辑器相关样式统一前缀
+  new RegExp("^wx_"), // 微信样式统一前缀
+  new RegExp("^wx-"), // 微信样式统一前缀
+  new RegExp('^js_darkmode__'), // 暗黑模式统一前缀
+  new RegExp('^js_wechannel'), // 视频号统一前缀
+];
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+function htmlDecode(str) {
+  return str
+    .replace(/&#39;/g, '\'')
+    .replace(/<br\s*(\/)?\s*>/g, '\n')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&nbsp;/g, ' ');
+}
+
+var uin = '';
+var key = '';
+var pass_ticket = '';
+var new_appmsg = 1;
+var item_show_type = "0";
+var real_item_show_type = "0";
+var can_see_complaint = "0";
+var tid = "";
+var aid = "";
+var clientversion = "";
+var appuin = "" || "Mzg3NTA4OTQ4OQ==";
+var voiceid = "";
+
+var source = "";
+var ascene = "";
+var subscene = "";
+var sessionid = "" || "svr_fcc847668b5";
+var abtest_cookie = "";
+
+var scene = 75;
+
+var itemidx = "";
+var appmsg_token = "";
+var _copyright_stat = "0";
+var _ori_article_type = "";
+
+var is_follow = "";
+var nickname = "国际英语角";
+var appmsg_type = "9";
+var ct = "1651674021";
+var user_name = "gh_ebe593ba9912";
+var fakeid = "";
+var version = "";
+var is_limit_user = "0";
+var round_head_img = "http://mmbiz.qpic.cn/mmbiz_png/kPsz6Up3kibnib3k66icQDogTSYFdEYxZlVDSSXxja4Ay0rqibQcicK5qgwrUv0ck0wzWeBH4o6pwmmiclBYjLTtWNhg/0?wx_fmt=png";
+var hd_head_img = "http://wx.qlogo.cn/mmhead/Q3auHgzwzM7ZLF1xPuKalsVCZk3SrvbQticuQu24qoMw4PIicT56r0og/0" || "";
+var ori_head_img_url = "http://wx.qlogo.cn/mmhead/Q3auHgzwzM7ZLF1xPuKalsVCZk3SrvbQticuQu24qoMw4PIicT56r0og/132";
+var msg_title = '青年节·转载 || 论学生生活的贫困（不完整译稿）'.html(false);
+var msg_desc = htmlDecode("论学生在经济、政治、心理、性和特别是思想方面的贫困");
+var msg_cdn_url = "http://mmbiz.qpic.cn/mmbiz_jpg/kPsz6Up3kibk9ibicjmZx8wqkQib28kOju9kb12dqvgfn6Rajz2haqQuHu3eeNxfGw95BBMWMAX2F8EmarxGpXxowg/0?wx_fmt=jpeg"; // 首图idx=0时2.35:1 ， 次图idx!=0时1:1
+var cdn_url_1_1 = "https://mmbiz.qlogo.cn/mmbiz_jpg/kPsz6Up3kibk9ibicjmZx8wqkQib28kOju9kaWia0uSUtXPVJLaL0ZnhzhHxViaeXbNzEtlZ3vA2JeruCujOPictR5vow/0?wx_fmt=jpeg"; // 1:1比例的封面图
+var cdn_url_235_1 = "https://mmbiz.qlogo.cn/mmbiz_jpg/kPsz6Up3kibk9ibicjmZx8wqkQib28kOju9kb12dqvgfn6Rajz2haqQuHu3eeNxfGw95BBMWMAX2F8EmarxGpXxowg/0?wx_fmt=jpeg"; // 首图idx=0时2.35:1 ， 次图idx!=0时1:1
+// var msg_link = "http://mp.weixin.qq.com/s?__biz=Mzg3NTA4OTQ4OQ==\x26amp;mid=2247485091\x26amp;idx=1\x26amp;sn=4de752a0fc187ddd89536f3cdff163f6\x26amp;chksm=cec79d9df9b0148be50073056c7fb7ea1087f79844ad941aa173d30e57c18766ef2bb23c8b2c#rd";
+var msg_link = "http://mp.weixin.qq.com/s?__biz=Mzg3NTA4OTQ4OQ==&amp;mid=2247485091&amp;idx=1&amp;sn=4de752a0fc187ddd89536f3cdff163f6&amp;chksm=cec79d9df9b0148be50073056c7fb7ea1087f79844ad941aa173d30e57c18766ef2bb23c8b2c#rd"; // @radeonwu
+var user_uin = "" * 1;
+var msg_source_url = '';
+var img_format = 'jpeg';
+var srcid = '';
+var req_id = '1717NrlnGVSnmCxRSp8Wk3t9';
+var networkType;
+var appmsgid = "2247485091" || '' || '';
+var comment_id = "0" || "0" * 1;
+var comment_enabled = "" * 1;
+var open_fansmsg = "0" * 1;
+var is_https_res = ("" * 1) && (location.protocol == "https:");
+var msg_daily_idx = "1" || "";
+var profileReportInfo = "" || "";
+
+var devicetype = "";
+var source_encode_biz = ""; // 转载来源的公众号encode biz
+var source_username = "";
+// var profile_ext_signature = "" || "";
+var reprint_ticket = "";
+var source_mid = "";
+var source_idx = "";
+var source_biz = "";
+var author_id = "";
+
+// 压缩标志位
+var optimizing_flag = "0" * 1;
+
+// 广告灰度实验取消 @add by scotthuang
+// var ad_abtest_padding = "0" * 1;
+
+var show_comment = "";
+var __appmsgCgiData = {
+  wxa_product: "" * 1,
+  wxa_cps: "" * 1,
+  show_msg_voice: "0" * 1,
+  can_use_page: "" * 1,
+  is_wxg_stuff_uin: "0" * 1,
+  card_pos: "",
+  copyright_stat: "0",
+  source_biz: "",
+  hd_head_img: "http://wx.qlogo.cn/mmhead/Q3auHgzwzM7ZLF1xPuKalsVCZk3SrvbQticuQu24qoMw4PIicT56r0og/0" || (window.location.protocol + "//" + window.location.host + "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/pic/appmsg/pic_rumor_link.2x5df5b8.jpg"),
+  has_red_packet_cover: "0" * 1 || 0,
+  minishopCardData: ""
+};
+var _empty_v = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/pic/pages/voice/empty5df5b8.mp3";
+var appmsg_album_info = (function () {
+  var curAlbumId = '';
+  var publicTagInfo = [
+              ];
+  for (var i = 0; i < publicTagInfo.length; i++) {
+    if (curAlbumId) {
+      if (curAlbumId === publicTagInfo[i].id) {
+        return publicTagInfo[i];
+      }
+    } else {
+      if (publicTagInfo[i].continousReadOn) {
+        return publicTagInfo[i];
+      }
+    }
+  }
+  return {};
+})();
+var copyright_stat = "0" * 1;
+var hideSource = "" * 1;
+
+var pay_fee = "" * 1;
+var pay_timestamp = "";
+var need_pay = "" * 1;
+var is_pay_subscribe = "0" * 1;
+
+var need_report_cost = "0" * 1;
+var use_tx_video_player = "0" * 1;
+var appmsg_fe_filter = "contenteditable";
+
+var friend_read_source = "" || "";
+var friend_read_version = "" || "";
+var friend_read_class_id = "" || "";
+
+var is_only_read = "1" * 1;
+var read_num = "" * 1;
+var like_num = "" * 1;
+var liked = "" == 'true' ? true : false;
+var is_temp_url = "" ? 1 : 0;
+var send_time = "";
+var icon_emotion_switch = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/emotion/icon_emotion_switch5df5b8.svg";
+var icon_emotion_switch_active = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/emotion/icon_emotion_switch_active5df5b8.svg";
+var icon_emotion_switch_primary = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/emotion/icon_emotion_switch_primary5df5b8.svg";
+var icon_emotion_switch_active_primary = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/emotion/icon_emotion_switch_active_primary5df5b8.svg";
+var icon_loading_white = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/common/icon_loading_white5df5b8.gif";
+var icon_audio_unread = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/audio/icon_audio_unread5df5b8.png";
+var icon_qqmusic_default = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/qqmusic/icon_qqmusic_default.2x5df5b8.png";
+var icon_qqmusic_source = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/qqmusic/icon_qqmusic_source5df5b8.svg";
+var icon_kugou_source = "//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/kugou/icon_kugou_source5df5b8.png";
+
+var topic_default_img = '//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg/topic/pic_book_thumb.2x5df5b8.png';
+var comment_edit_icon = '//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/appmsg_new/icon_edit5df5b8.png';
+var comment_loading_img = '//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/icon/common/icon_loading_white5df5b8.gif';
+var comment_c2c_not_support_img = '//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/pic/appmsg/pic_discuss_more5df5b8.png';
+
+var voice_in_appmsg = {
+  "1": "1"
+  };
+var voiceList = {};
+voiceList={"voice_in_appmsg":[]}
+var reprint_style = '' * 1;
+var wxa_img_alert = "" != 'false';
+
+// 小程序相关数据
+var weapp_sn_arr_json = "" || "";
+
+// 视频号相关数据
+var video_snap_json = "" || "";
+// profile相关数据
+var mp_profile = [
+          {
+    fakeid: 'MzU5NzkwMjY0NQ==',
+    nickname: '牛头角酒馆',
+    alias: '',
+    round_head_img: 'http://mmbiz.qpic.cn/mmbiz_png/D2n02hw0P607I4WHv8svn6SH9aSu04nwico9U88j4w9gF4fqsiaoo70ufWoNdaWvQjWCccUa5Asv1YboOv0qwPdQ/0?wx_fmt=png',
+    signature: '蚂蚁森林里会有电子越共吗？',
+    original_num: '20' * 1,
+    is_biz_ban: '0' * 1,
+    username: 'gh_634d401b1e04'
+  }
+      ,  {
+    fakeid: 'Mzg3NTA4OTQ4OQ==',
+    nickname: '国际英语角',
+    alias: 'tocontinuetostruggle',
+    round_head_img: 'http://mmbiz.qpic.cn/mmbiz_png/kPsz6Up3kibnib3k66icQDogTSYFdEYxZlVDSSXxja4Ay0rqibQcicK5qgwrUv0ck0wzWeBH4o6pwmmiclBYjLTtWNhg/0?wx_fmt=png',
+    signature: '国际同文馆',
+    original_num: '113' * 1,
+    is_biz_ban: '0' * 1,
+    username: 'gh_ebe593ba9912'
+  }
+      ];
+
+// 能力封禁字段
+var ban_scene = "0" * 1;
+
+var svr_time = "1652780932" * 1;
+// 加迁移文章字段, 默认为false
+var is_transfer_msg = "" * 1 || 0;
+
+var malicious_title_reason_id = "0" * 1; // 标题党wording id @radeonwu
+var malicious_content_type = "0" * 1; // 标题党类型 @radeonwu
+
+// 修改错别字逻辑
+var modify_time = "1651674781";
+
+// 限制跳转到公众号profile @radeonwu
+var isprofileblock = "0";
+
+var jumpInfo = [
+    ];
+
+var hasRelatedArticleInfo = '0' * 1 || 0; // 有相关阅读的数据 @radeonwu
+var relatedArticleFlag = '' * 1 || 0; // 0不用拓展，为1时拓展3条 @yinshen
+
+var canUseAutoTypeSetting = '0' * 1 || 0; // 可以应用到自动排版样式
+window.wxtoken = "777";
+window.is_login = '' * 1; // 把上面的那段代码改一下，方便配置回退
+
+window.__moon_initcallback = function () {
+  if (!!window.__initCatch) {
+    window.__initCatch({
+      idkey: 27611 + 2,
+      startKey: 0,
+      limit: 128,
+      badjsId: 43,
+      reportOpt: {
+        uin: uin,
+        biz: biz,
+        mid: mid,
+        idx: idx,
+        sn: sn
+      },
+      extInfo: {
+        network_rate: 0.01,    //网络错误采样率
+        badjs_rate: 0.1 // badjs上报叠加采样率
+      }
+    });
+  }
+}
+// msg_title != title
+var title = "国际英语角";
+
+var is_new_msg = true;
+// var appmsg_like_type = "2" * 1 ? "2" * 1 : 1; //区分点赞和看一看
+// var appmsg_like_type = 2;
+
+var is_wash = '' * 1;
+var topbarEnable = false;
+var enterid = "" * 1 || "" * 1 || parseInt(Date.now() / 1000);
+// var appid_list = ""; // 改图文所在的小程序的appid列表，只在小程序中使用
+var miniprogram_appid = ""; // 该图文所在的小程序的appid
+
+var defaultAvatarUrl = '//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/pic/common/avatar_default5df5b8.svg';
+
+document.addEventListener('DOMContentLoaded', function () {
+  window.domCompleteTime = Date.now();
+});
+
+// 记录是否有转载推荐语
+      var hasRecommendMsg = 0;
+  ;
+// 付费阅读
+var isPayTopic = '' * 1;
+  var payTopicPrice = '' * 1;
+var isRemovedFromPayTopic = '' * 1;
+var isPaySubscribe = '0' * 1; // 是否付费文章
+var isPaid = '0' * 1; // 是否已付费
+var isRefund = '' * 1; // 是否已退款
+var payShowIAPPrice = 1; // 是否启用IAP价格显示，用于外币显示
+var payProductId = '' || ''; // 付费金额对应商品ID，用于iOS多币种金额IAP查询
+var previewPercent = '0' || ''; // 试读比例
+var payGiftsCount = '0' * 1 || 0; // 付费赠送数量
+var payFreeGift = '' * 1 || 0; // 是否是领取付费赠送的用户
+var is_finished_preview = 0; // 是否试读完
+var jump2pay = '' * 1; // 是否跳转到支付按钮的位置
+
+var isFans; // getext里获取数据再塞到这里
+var is_need_reward = (isPaySubscribe && !isPaid) ? 0 : "0" * 1; // 非付费不可赞赏
+var is_teenager = '' * 1 || 0; //是否处于青少年模式
+var is_care_mode = '' * 1 || 0; //是否处于关怀模式
+
+// 段落投诉
+var anchor_tree_msg = '';
+// Dark Mode
+var colorScheme = ''; // ''|'dark'|'light', 空表示跟随系统
+
+var iapPriceInfo = {
+  };
+var productPayPackage = {
+    iap_price_info: iapPriceInfo
+};
+
+// 漫画原创
+var isCartoonCopyright = '0' * 1; // 是否漫画原创
+
+// 图文朗读
+var show_msg_voice = '' * 1;
+var qnaCardData = '';
+var exptype = '' || '';
+var expsessionid = '' || '';
+
+// 留言相关
+var goContentId = '';
+var goReplyId = '';
+
+var show_related_article = '' * 1; // 是否强制出相关阅读
+
+var wwdistype = ''; // 企微场景，industrynews表示行业资讯
+
+// 腾讯视频相关
+window.cgiData = {
+  appImg: '//res.wx.qq.com/mmbizwap/zh_CN/htmledition/images/pic/pages/video/pic_v.2x5df5b8.png',
+}
+
+// ip显示逻辑相关
+window.ip_wording = {
+  countryName: '中国',
+  countryId: '156',
+  provinceName: '四川',
+  provinceId: '',
+  cityName: '',
+  cityId: ''
+};
+window.show_ip_wording = '1' * 1;
+</script><script nonce="187699337" reportloaderror="" type="text/javascript">!function(e,t){"object"==typeof exports&&"object"==typeof module?module.exports=t():"function"==typeof define&&define.amd?define("Darkmode",[],t):"object"==typeof exports?exports.Darkmode=t():e.Darkmode=t()}(window,(function(){return function(e){var t={};function r(n){if(t[n])return t[n].exports;var a=t[n]={i:n,l:!1,exports:{}};return e[n].call(a.exports,a,a.exports,r),a.l=!0,a.exports}return r.m=e,r.c=t,r.d=function(e,t,n){r.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:n})},r.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},r.t=function(e,t){if(1&t&&(e=r(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var n=Object.create(null);if(r.r(n),Object.defineProperty(n,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var a in e)r.d(n,a,function(t){return e[t]}.bind(null,a));return n},r.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return r.d(t,"a",t),t},r.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},r.p="",r(r.s=9)}([function(e,t,r){"use strict";var n=r(3),a=r(6),o=[].slice,i=["keyword","gray","hex"],l={};Object.keys(a).forEach((function(e){l[o.call(a[e].labels).sort().join("")]=e}));var s={};function u(e,t){if(!(this instanceof u))return new u(e,t);if(t&&t in i&&(t=null),t&&!(t in a))throw new Error("Unknown model: "+t);var r,c;if(null==e)this.model="rgb",this.color=[0,0,0],this.valpha=1;else if(e instanceof u)this.model=e.model,this.color=e.color.slice(),this.valpha=e.valpha;else if("string"==typeof e){var h=n.get(e);if(null===h)throw new Error("Unable to parse color from string: "+e);this.model=h.model,c=a[this.model].channels,this.color=h.value.slice(0,c),this.valpha="number"==typeof h.value[c]?h.value[c]:1}else if(e.length){this.model=t||"rgb",c=a[this.model].channels;var f=o.call(e,0,c);this.color=d(f,c),this.valpha="number"==typeof e[c]?e[c]:1}else if("number"==typeof e)e&=16777215,this.model="rgb",this.color=[e>>16&255,e>>8&255,255&e],this.valpha=1;else{this.valpha=1;var g=Object.keys(e);"alpha"in e&&(g.splice(g.indexOf("alpha"),1),this.valpha="number"==typeof e.alpha?e.alpha:0);var b=g.sort().join("");if(!(b in l))throw new Error("Unable to parse color from object: "+JSON.stringify(e));this.model=l[b];var p=a[this.model].labels,y=[];for(r=0;r<p.length;r++)y.push(e[p[r]]);this.color=d(y)}if(s[this.model])for(c=a[this.model].channels,r=0;r<c;r++){var m=s[this.model][r];m&&(this.color[r]=m(this.color[r]))}this.valpha=Math.max(0,Math.min(1,this.valpha)),Object.freeze&&Object.freeze(this)}function c(e,t,r){return(e=Array.isArray(e)?e:[e]).forEach((function(e){(s[e]||(s[e]=[]))[t]=r})),e=e[0],function(n){var a;return arguments.length?(r&&(n=r(n)),(a=this[e]()).color[t]=n,a):(a=this[e]().color[t],r&&(a=r(a)),a)}}function h(e){return function(t){return Math.max(0,Math.min(e,t))}}function f(e){return Array.isArray(e)?e:[e]}function d(e,t){for(var r=0;r<t;r++)"number"!=typeof e[r]&&(e[r]=0);return e}u.prototype={toString:function(){return this.string()},toJSON:function(){return this[this.model]()},string:function(e){var t=this.model in n.to?this:this.rgb(),r=1===(t=t.round("number"==typeof e?e:1)).valpha?t.color:t.color.concat(this.valpha);return n.to[t.model](r)},percentString:function(e){var t=this.rgb().round("number"==typeof e?e:1),r=1===t.valpha?t.color:t.color.concat(this.valpha);return n.to.rgb.percent(r)},array:function(){return 1===this.valpha?this.color.slice():this.color.concat(this.valpha)},object:function(){for(var e={},t=a[this.model].channels,r=a[this.model].labels,n=0;n<t;n++)e[r[n]]=this.color[n];return 1!==this.valpha&&(e.alpha=this.valpha),e},unitArray:function(){var e=this.rgb().color;return e[0]/=255,e[1]/=255,e[2]/=255,1!==this.valpha&&e.push(this.valpha),e},unitObject:function(){var e=this.rgb().object();return e.r/=255,e.g/=255,e.b/=255,1!==this.valpha&&(e.alpha=this.valpha),e},round:function(e){return e=Math.max(e||0,0),new u(this.color.map(function(e){return function(t){return function(e,t){return Number(e.toFixed(t))}(t,e)}}(e)).concat(this.valpha),this.model)},alpha:function(e){return arguments.length?new u(this.color.concat(Math.max(0,Math.min(1,e))),this.model):this.valpha},red:c("rgb",0,h(255)),green:c("rgb",1,h(255)),blue:c("rgb",2,h(255)),hue:c(["hsl","hsv","hsl","hwb","hcg"],0,(function(e){return(e%360+360)%360})),saturationl:c("hsl",1,h(100)),lightness:c("hsl",2,h(100)),saturationv:c("hsv",1,h(100)),value:c("hsv",2,h(100)),chroma:c("hcg",1,h(100)),gray:c("hcg",2,h(100)),white:c("hwb",1,h(100)),wblack:c("hwb",2,h(100)),cyan:c("cmyk",0,h(100)),magenta:c("cmyk",1,h(100)),yellow:c("cmyk",2,h(100)),black:c("cmyk",3,h(100)),x:c("xyz",0,h(100)),y:c("xyz",1,h(100)),z:c("xyz",2,h(100)),l:c("lab",0,h(100)),a:c("lab",1),b:c("lab",2),keyword:function(e){return arguments.length?new u(e):a[this.model].keyword(this.color)},hex:function(e){return arguments.length?new u(e):n.to.hex(this.rgb().round().color)},rgbNumber:function(){var e=this.rgb().color;return(255&e[0])<<16|(255&e[1])<<8|255&e[2]},luminosity:function(){for(var e=this.rgb().color,t=[],r=0;r<e.length;r++){var n=e[r]/255;t[r]=n<=.03928?n/12.92:Math.pow((n+.055)/1.055,2.4)}return.2126*t[0]+.7152*t[1]+.0722*t[2]},contrast:function(e){var t=this.luminosity(),r=e.luminosity();return t>r?(t+.05)/(r+.05):(r+.05)/(t+.05)},level:function(e){var t=this.contrast(e);return t>=7.1?"AAA":t>=4.5?"AA":""},isDark:function(){var e=this.rgb().color;return(299*e[0]+587*e[1]+114*e[2])/1e3<128},isLight:function(){return!this.isDark()},negate:function(){for(var e=this.rgb(),t=0;t<3;t++)e.color[t]=255-e.color[t];return e},lighten:function(e){var t=this.hsl();return t.color[2]+=t.color[2]*e,t},darken:function(e){var t=this.hsl();return t.color[2]-=t.color[2]*e,t},saturate:function(e){var t=this.hsl();return t.color[1]+=t.color[1]*e,t},desaturate:function(e){var t=this.hsl();return t.color[1]-=t.color[1]*e,t},whiten:function(e){var t=this.hwb();return t.color[1]+=t.color[1]*e,t},blacken:function(e){var t=this.hwb();return t.color[2]+=t.color[2]*e,t},grayscale:function(){var e=this.rgb().color,t=.3*e[0]+.59*e[1]+.11*e[2];return u.rgb(t,t,t)},fade:function(e){return this.alpha(this.valpha-this.valpha*e)},opaquer:function(e){return this.alpha(this.valpha+this.valpha*e)},rotate:function(e){var t=this.hsl(),r=t.color[0];return r=(r=(r+e)%360)<0?360+r:r,t.color[0]=r,t},mix:function(e,t){if(!e||!e.rgb)throw new Error('Argument to "mix" was not a Color instance, but rather an instance of '+typeof e);var r=e.rgb(),n=this.rgb(),a=void 0===t?.5:t,o=2*a-1,i=r.alpha()-n.alpha(),l=((o*i==-1?o:(o+i)/(1+o*i))+1)/2,s=1-l;return u.rgb(l*r.red()+s*n.red(),l*r.green()+s*n.green(),l*r.blue()+s*n.blue(),r.alpha()*a+n.alpha()*(1-a))}},Object.keys(a).forEach((function(e){if(-1===i.indexOf(e)){var t=a[e].channels;u.prototype[e]=function(){if(this.model===e)return new u(this);if(arguments.length)return new u(arguments,e);var r="number"==typeof arguments[t]?t:this.valpha;return new u(f(a[this.model][e].raw(this.color)).concat(r),e)},u[e]=function(r){return"number"==typeof r&&(r=d(o.call(arguments),t)),new u(r,e)}}})),e.exports=u},function(e,t,r){"use strict";e.exports={aliceblue:[240,248,255],antiquewhite:[250,235,215],aqua:[0,255,255],aquamarine:[127,255,212],azure:[240,255,255],beige:[245,245,220],bisque:[255,228,196],black:[0,0,0],blanchedalmond:[255,235,205],blue:[0,0,255],blueviolet:[138,43,226],brown:[165,42,42],burlywood:[222,184,135],cadetblue:[95,158,160],chartreuse:[127,255,0],chocolate:[210,105,30],coral:[255,127,80],cornflowerblue:[100,149,237],cornsilk:[255,248,220],crimson:[220,20,60],cyan:[0,255,255],darkblue:[0,0,139],darkcyan:[0,139,139],darkgoldenrod:[184,134,11],darkgray:[169,169,169],darkgreen:[0,100,0],darkgrey:[169,169,169],darkkhaki:[189,183,107],darkmagenta:[139,0,139],darkolivegreen:[85,107,47],darkorange:[255,140,0],darkorchid:[153,50,204],darkred:[139,0,0],darksalmon:[233,150,122],darkseagreen:[143,188,143],darkslateblue:[72,61,139],darkslategray:[47,79,79],darkslategrey:[47,79,79],darkturquoise:[0,206,209],darkviolet:[148,0,211],deeppink:[255,20,147],deepskyblue:[0,191,255],dimgray:[105,105,105],dimgrey:[105,105,105],dodgerblue:[30,144,255],firebrick:[178,34,34],floralwhite:[255,250,240],forestgreen:[34,139,34],fuchsia:[255,0,255],gainsboro:[220,220,220],ghostwhite:[248,248,255],gold:[255,215,0],goldenrod:[218,165,32],gray:[128,128,128],green:[0,128,0],greenyellow:[173,255,47],grey:[128,128,128],honeydew:[240,255,240],hotpink:[255,105,180],indianred:[205,92,92],indigo:[75,0,130],ivory:[255,255,240],khaki:[240,230,140],lavender:[230,230,250],lavenderblush:[255,240,245],lawngreen:[124,252,0],lemonchiffon:[255,250,205],lightblue:[173,216,230],lightcoral:[240,128,128],lightcyan:[224,255,255],lightgoldenrodyellow:[250,250,210],lightgray:[211,211,211],lightgreen:[144,238,144],lightgrey:[211,211,211],lightpink:[255,182,193],lightsalmon:[255,160,122],lightseagreen:[32,178,170],lightskyblue:[135,206,250],lightslategray:[119,136,153],lightslategrey:[119,136,153],lightsteelblue:[176,196,222],lightyellow:[255,255,224],lime:[0,255,0],limegreen:[50,205,50],linen:[250,240,230],magenta:[255,0,255],maroon:[128,0,0],mediumaquamarine:[102,205,170],mediumblue:[0,0,205],mediumorchid:[186,85,211],mediumpurple:[147,112,219],mediumseagreen:[60,179,113],mediumslateblue:[123,104,238],mediumspringgreen:[0,250,154],mediumturquoise:[72,209,204],mediumvioletred:[199,21,133],midnightblue:[25,25,112],mintcream:[245,255,250],mistyrose:[255,228,225],moccasin:[255,228,181],navajowhite:[255,222,173],navy:[0,0,128],oldlace:[253,245,230],olive:[128,128,0],olivedrab:[107,142,35],orange:[255,165,0],orangered:[255,69,0],orchid:[218,112,214],palegoldenrod:[238,232,170],palegreen:[152,251,152],paleturquoise:[175,238,238],palevioletred:[219,112,147],papayawhip:[255,239,213],peachpuff:[255,218,185],peru:[205,133,63],pink:[255,192,203],plum:[221,160,221],powderblue:[176,224,230],purple:[128,0,128],rebeccapurple:[102,51,153],red:[255,0,0],rosybrown:[188,143,143],royalblue:[65,105,225],saddlebrown:[139,69,19],salmon:[250,128,114],sandybrown:[244,164,96],seagreen:[46,139,87],seashell:[255,245,238],sienna:[160,82,45],silver:[192,192,192],skyblue:[135,206,235],slateblue:[106,90,205],slategray:[112,128,144],slategrey:[112,128,144],snow:[255,250,250],springgreen:[0,255,127],steelblue:[70,130,180],tan:[210,180,140],teal:[0,128,128],thistle:[216,191,216],tomato:[255,99,71],turquoise:[64,224,208],violet:[238,130,238],wheat:[245,222,179],white:[255,255,255],whitesmoke:[245,245,245],yellow:[255,255,0],yellowgreen:[154,205,50]}},function(e,t,r){var n=r(7),a={};for(var o in n)n.hasOwnProperty(o)&&(a[n[o]]=o);var i=e.exports={rgb:{channels:3,labels:"rgb"},hsl:{channels:3,labels:"hsl"},hsv:{channels:3,labels:"hsv"},hwb:{channels:3,labels:"hwb"},cmyk:{channels:4,labels:"cmyk"},xyz:{channels:3,labels:"xyz"},lab:{channels:3,labels:"lab"},lch:{channels:3,labels:"lch"},hex:{channels:1,labels:["hex"]},keyword:{channels:1,labels:["keyword"]},ansi16:{channels:1,labels:["ansi16"]},ansi256:{channels:1,labels:["ansi256"]},hcg:{channels:3,labels:["h","c","g"]},apple:{channels:3,labels:["r16","g16","b16"]},gray:{channels:1,labels:["gray"]}};for(var l in i)if(i.hasOwnProperty(l)){if(!("channels"in i[l]))throw new Error("missing channels property: "+l);if(!("labels"in i[l]))throw new Error("missing channel labels property: "+l);if(i[l].labels.length!==i[l].channels)throw new Error("channel and label counts mismatch: "+l);var s=i[l].channels,u=i[l].labels;delete i[l].channels,delete i[l].labels,Object.defineProperty(i[l],"channels",{value:s}),Object.defineProperty(i[l],"labels",{value:u})}i.rgb.hsl=function(e){var t,r,n=e[0]/255,a=e[1]/255,o=e[2]/255,i=Math.min(n,a,o),l=Math.max(n,a,o),s=l-i;return l===i?t=0:n===l?t=(a-o)/s:a===l?t=2+(o-n)/s:o===l&&(t=4+(n-a)/s),(t=Math.min(60*t,360))<0&&(t+=360),r=(i+l)/2,[t,100*(l===i?0:r<=.5?s/(l+i):s/(2-l-i)),100*r]},i.rgb.hsv=function(e){var t,r,n,a,o,i=e[0]/255,l=e[1]/255,s=e[2]/255,u=Math.max(i,l,s),c=u-Math.min(i,l,s),h=function(e){return(u-e)/6/c+.5};return 0===c?a=o=0:(o=c/u,t=h(i),r=h(l),n=h(s),i===u?a=n-r:l===u?a=1/3+t-n:s===u&&(a=2/3+r-t),a<0?a+=1:a>1&&(a-=1)),[360*a,100*o,100*u]},i.rgb.hwb=function(e){var t=e[0],r=e[1],n=e[2];return[i.rgb.hsl(e)[0],100*(1/255*Math.min(t,Math.min(r,n))),100*(n=1-1/255*Math.max(t,Math.max(r,n)))]},i.rgb.cmyk=function(e){var t,r=e[0]/255,n=e[1]/255,a=e[2]/255;return[100*((1-r-(t=Math.min(1-r,1-n,1-a)))/(1-t)||0),100*((1-n-t)/(1-t)||0),100*((1-a-t)/(1-t)||0),100*t]},i.rgb.keyword=function(e){var t=a[e];if(t)return t;var r,o,i,l=1/0;for(var s in n)if(n.hasOwnProperty(s)){var u=n[s],c=(o=e,i=u,Math.pow(o[0]-i[0],2)+Math.pow(o[1]-i[1],2)+Math.pow(o[2]-i[2],2));c<l&&(l=c,r=s)}return r},i.keyword.rgb=function(e){return n[e]},i.rgb.xyz=function(e){var t=e[0]/255,r=e[1]/255,n=e[2]/255;return[100*(.4124*(t=t>.04045?Math.pow((t+.055)/1.055,2.4):t/12.92)+.3576*(r=r>.04045?Math.pow((r+.055)/1.055,2.4):r/12.92)+.1805*(n=n>.04045?Math.pow((n+.055)/1.055,2.4):n/12.92)),100*(.2126*t+.7152*r+.0722*n),100*(.0193*t+.1192*r+.9505*n)]},i.rgb.lab=function(e){var t=i.rgb.xyz(e),r=t[0],n=t[1],a=t[2];return n/=100,a/=108.883,r=(r/=95.047)>.008856?Math.pow(r,1/3):7.787*r+16/116,[116*(n=n>.008856?Math.pow(n,1/3):7.787*n+16/116)-16,500*(r-n),200*(n-(a=a>.008856?Math.pow(a,1/3):7.787*a+16/116))]},i.hsl.rgb=function(e){var t,r,n,a,o,i=e[0]/360,l=e[1]/100,s=e[2]/100;if(0===l)return[o=255*s,o,o];t=2*s-(r=s<.5?s*(1+l):s+l-s*l),a=[0,0,0];for(var u=0;u<3;u++)(n=i+1/3*-(u-1))<0&&n++,n>1&&n--,o=6*n<1?t+6*(r-t)*n:2*n<1?r:3*n<2?t+(r-t)*(2/3-n)*6:t,a[u]=255*o;return a},i.hsl.hsv=function(e){var t=e[0],r=e[1]/100,n=e[2]/100,a=r,o=Math.max(n,.01);return r*=(n*=2)<=1?n:2-n,a*=o<=1?o:2-o,[t,100*(0===n?2*a/(o+a):2*r/(n+r)),100*((n+r)/2)]},i.hsv.rgb=function(e){var t=e[0]/60,r=e[1]/100,n=e[2]/100,a=Math.floor(t)%6,o=t-Math.floor(t),i=255*n*(1-r),l=255*n*(1-r*o),s=255*n*(1-r*(1-o));switch(n*=255,a){case 0:return[n,s,i];case 1:return[l,n,i];case 2:return[i,n,s];case 3:return[i,l,n];case 4:return[s,i,n];case 5:return[n,i,l]}},i.hsv.hsl=function(e){var t,r,n,a=e[0],o=e[1]/100,i=e[2]/100,l=Math.max(i,.01);return n=(2-o)*i,r=o*l,[a,100*(r=(r/=(t=(2-o)*l)<=1?t:2-t)||0),100*(n/=2)]},i.hwb.rgb=function(e){var t,r,n,a,o,i,l,s=e[0]/360,u=e[1]/100,c=e[2]/100,h=u+c;switch(h>1&&(u/=h,c/=h),n=6*s-(t=Math.floor(6*s)),0!=(1&t)&&(n=1-n),a=u+n*((r=1-c)-u),t){default:case 6:case 0:o=r,i=a,l=u;break;case 1:o=a,i=r,l=u;break;case 2:o=u,i=r,l=a;break;case 3:o=u,i=a,l=r;break;case 4:o=a,i=u,l=r;break;case 5:o=r,i=u,l=a}return[255*o,255*i,255*l]},i.cmyk.rgb=function(e){var t=e[0]/100,r=e[1]/100,n=e[2]/100,a=e[3]/100;return[255*(1-Math.min(1,t*(1-a)+a)),255*(1-Math.min(1,r*(1-a)+a)),255*(1-Math.min(1,n*(1-a)+a))]},i.xyz.rgb=function(e){var t,r,n,a=e[0]/100,o=e[1]/100,i=e[2]/100;return r=-.9689*a+1.8758*o+.0415*i,n=.0557*a+-.204*o+1.057*i,t=(t=3.2406*a+-1.5372*o+-.4986*i)>.0031308?1.055*Math.pow(t,1/2.4)-.055:12.92*t,r=r>.0031308?1.055*Math.pow(r,1/2.4)-.055:12.92*r,n=n>.0031308?1.055*Math.pow(n,1/2.4)-.055:12.92*n,[255*(t=Math.min(Math.max(0,t),1)),255*(r=Math.min(Math.max(0,r),1)),255*(n=Math.min(Math.max(0,n),1))]},i.xyz.lab=function(e){var t=e[0],r=e[1],n=e[2];return r/=100,n/=108.883,t=(t/=95.047)>.008856?Math.pow(t,1/3):7.787*t+16/116,[116*(r=r>.008856?Math.pow(r,1/3):7.787*r+16/116)-16,500*(t-r),200*(r-(n=n>.008856?Math.pow(n,1/3):7.787*n+16/116))]},i.lab.xyz=function(e){var t,r,n,a=e[0];t=e[1]/500+(r=(a+16)/116),n=r-e[2]/200;var o=Math.pow(r,3),i=Math.pow(t,3),l=Math.pow(n,3);return r=o>.008856?o:(r-16/116)/7.787,t=i>.008856?i:(t-16/116)/7.787,n=l>.008856?l:(n-16/116)/7.787,[t*=95.047,r*=100,n*=108.883]},i.lab.lch=function(e){var t,r=e[0],n=e[1],a=e[2];return(t=360*Math.atan2(a,n)/2/Math.PI)<0&&(t+=360),[r,Math.sqrt(n*n+a*a),t]},i.lch.lab=function(e){var t,r=e[0],n=e[1];return t=e[2]/360*2*Math.PI,[r,n*Math.cos(t),n*Math.sin(t)]},i.rgb.ansi16=function(e){var t=e[0],r=e[1],n=e[2],a=1 in arguments?arguments[1]:i.rgb.hsv(e)[2];if(0===(a=Math.round(a/50)))return 30;var o=30+(Math.round(n/255)<<2|Math.round(r/255)<<1|Math.round(t/255));return 2===a&&(o+=60),o},i.hsv.ansi16=function(e){return i.rgb.ansi16(i.hsv.rgb(e),e[2])},i.rgb.ansi256=function(e){var t=e[0],r=e[1],n=e[2];return t===r&&r===n?t<8?16:t>248?231:Math.round((t-8)/247*24)+232:16+36*Math.round(t/255*5)+6*Math.round(r/255*5)+Math.round(n/255*5)},i.ansi16.rgb=function(e){var t=e%10;if(0===t||7===t)return e>50&&(t+=3.5),[t=t/10.5*255,t,t];var r=.5*(1+~~(e>50));return[(1&t)*r*255,(t>>1&1)*r*255,(t>>2&1)*r*255]},i.ansi256.rgb=function(e){if(e>=232){var t=10*(e-232)+8;return[t,t,t]}var r;return e-=16,[Math.floor(e/36)/5*255,Math.floor((r=e%36)/6)/5*255,r%6/5*255]},i.rgb.hex=function(e){var t=(((255&Math.round(e[0]))<<16)+((255&Math.round(e[1]))<<8)+(255&Math.round(e[2]))).toString(16).toUpperCase();return"000000".substring(t.length)+t},i.hex.rgb=function(e){var t=e.toString(16).match(/[a-f0-9]{6}|[a-f0-9]{3}/i);if(!t)return[0,0,0];var r=t[0];3===t[0].length&&(r=r.split("").map((function(e){return e+e})).join(""));var n=parseInt(r,16);return[n>>16&255,n>>8&255,255&n]},i.rgb.hcg=function(e){var t,r=e[0]/255,n=e[1]/255,a=e[2]/255,o=Math.max(Math.max(r,n),a),i=Math.min(Math.min(r,n),a),l=o-i;return t=l<=0?0:o===r?(n-a)/l%6:o===n?2+(a-r)/l:4+(r-n)/l+4,t/=6,[360*(t%=1),100*l,100*(l<1?i/(1-l):0)]},i.hsl.hcg=function(e){var t=e[1]/100,r=e[2]/100,n=1,a=0;return(n=r<.5?2*t*r:2*t*(1-r))<1&&(a=(r-.5*n)/(1-n)),[e[0],100*n,100*a]},i.hsv.hcg=function(e){var t=e[1]/100,r=e[2]/100,n=t*r,a=0;return n<1&&(a=(r-n)/(1-n)),[e[0],100*n,100*a]},i.hcg.rgb=function(e){var t=e[0]/360,r=e[1]/100,n=e[2]/100;if(0===r)return[255*n,255*n,255*n];var a,o=[0,0,0],i=t%1*6,l=i%1,s=1-l;switch(Math.floor(i)){case 0:o[0]=1,o[1]=l,o[2]=0;break;case 1:o[0]=s,o[1]=1,o[2]=0;break;case 2:o[0]=0,o[1]=1,o[2]=l;break;case 3:o[0]=0,o[1]=s,o[2]=1;break;case 4:o[0]=l,o[1]=0,o[2]=1;break;default:o[0]=1,o[1]=0,o[2]=s}return a=(1-r)*n,[255*(r*o[0]+a),255*(r*o[1]+a),255*(r*o[2]+a)]},i.hcg.hsv=function(e){var t=e[1]/100,r=t+e[2]/100*(1-t),n=0;return r>0&&(n=t/r),[e[0],100*n,100*r]},i.hcg.hsl=function(e){var t=e[1]/100,r=e[2]/100*(1-t)+.5*t,n=0;return r>0&&r<.5?n=t/(2*r):r>=.5&&r<1&&(n=t/(2*(1-r))),[e[0],100*n,100*r]},i.hcg.hwb=function(e){var t=e[1]/100,r=t+e[2]/100*(1-t);return[e[0],100*(r-t),100*(1-r)]},i.hwb.hcg=function(e){var t=e[1]/100,r=1-e[2]/100,n=r-t,a=0;return n<1&&(a=(r-n)/(1-n)),[e[0],100*n,100*a]},i.apple.rgb=function(e){return[e[0]/65535*255,e[1]/65535*255,e[2]/65535*255]},i.rgb.apple=function(e){return[e[0]/255*65535,e[1]/255*65535,e[2]/255*65535]},i.gray.rgb=function(e){return[e[0]/100*255,e[0]/100*255,e[0]/100*255]},i.gray.hsl=i.gray.hsv=function(e){return[0,0,e[0]]},i.gray.hwb=function(e){return[0,100,e[0]]},i.gray.cmyk=function(e){return[0,0,0,e[0]]},i.gray.lab=function(e){return[e[0],0,0]},i.gray.hex=function(e){var t=255&Math.round(e[0]/100*255),r=((t<<16)+(t<<8)+t).toString(16).toUpperCase();return"000000".substring(r.length)+r},i.rgb.gray=function(e){return[(e[0]+e[1]+e[2])/3/255*100]}},function(e,t,r){var n=r(1),a=r(4),o=Object.hasOwnProperty,i={};for(var l in n)o.call(n,l)&&(i[n[l]]=l);var s=e.exports={to:{},get:{}};function u(e,t,r){return Math.min(Math.max(t,e),r)}function c(e){var t=Math.round(e).toString(16).toUpperCase();return t.length<2?"0"+t:t}s.get=function(e){var t,r;switch(e.substring(0,3).toLowerCase()){case"hsl":t=s.get.hsl(e),r="hsl";break;case"hwb":t=s.get.hwb(e),r="hwb";break;default:t=s.get.rgb(e),r="rgb"}return t?{model:r,value:t}:null},s.get.rgb=function(e){if(!e)return null;var t,r,a,i=[0,0,0,1];if(t=e.match(/^#([a-f0-9]{6})([a-f0-9]{2})?$/i)){for(a=t[2],t=t[1],r=0;r<3;r++){var l=2*r;i[r]=parseInt(t.slice(l,l+2),16)}a&&(i[3]=parseInt(a,16)/255)}else if(t=e.match(/^#([a-f0-9]{3,4})$/i)){for(a=(t=t[1])[3],r=0;r<3;r++)i[r]=parseInt(t[r]+t[r],16);a&&(i[3]=parseInt(a+a,16)/255)}else if(t=e.match(/^rgba?\(\s*([+-]?\d+)(?=[\s,])\s*(?:,\s*)?([+-]?\d+)(?=[\s,])\s*(?:,\s*)?([+-]?\d+)\s*(?:[,|\/]\s*([+-]?[\d\.]+)(%?)\s*)?\)$/)){for(r=0;r<3;r++)i[r]=parseInt(t[r+1],0);t[4]&&(t[5]?i[3]=.01*parseFloat(t[4]):i[3]=parseFloat(t[4]))}else{if(!(t=e.match(/^rgba?\(\s*([+-]?[\d\.]+)\%\s*,?\s*([+-]?[\d\.]+)\%\s*,?\s*([+-]?[\d\.]+)\%\s*(?:[,|\/]\s*([+-]?[\d\.]+)(%?)\s*)?\)$/)))return(t=e.match(/^(\w+)$/))?"transparent"===t[1]?[0,0,0,0]:o.call(n,t[1])?((i=n[t[1]])[3]=1,i):null:null;for(r=0;r<3;r++)i[r]=Math.round(2.55*parseFloat(t[r+1]));t[4]&&(t[5]?i[3]=.01*parseFloat(t[4]):i[3]=parseFloat(t[4]))}for(r=0;r<3;r++)i[r]=u(i[r],0,255);return i[3]=u(i[3],0,1),i},s.get.hsl=function(e){if(!e)return null;var t=e.match(/^hsla?\(\s*([+-]?(?:\d{0,3}\.)?\d+)(?:deg)?\s*,?\s*([+-]?[\d\.]+)%\s*,?\s*([+-]?[\d\.]+)%\s*(?:[,|\/]\s*([+-]?(?=\.\d|\d)(?:0|[1-9]\d*)?(?:\.\d*)?(?:[eE][+-]?\d+)?)\s*)?\)$/);if(t){var r=parseFloat(t[4]);return[(parseFloat(t[1])%360+360)%360,u(parseFloat(t[2]),0,100),u(parseFloat(t[3]),0,100),u(isNaN(r)?1:r,0,1)]}return null},s.get.hwb=function(e){if(!e)return null;var t=e.match(/^hwb\(\s*([+-]?\d{0,3}(?:\.\d+)?)(?:deg)?\s*,\s*([+-]?[\d\.]+)%\s*,\s*([+-]?[\d\.]+)%\s*(?:,\s*([+-]?(?=\.\d|\d)(?:0|[1-9]\d*)?(?:\.\d*)?(?:[eE][+-]?\d+)?)\s*)?\)$/);if(t){var r=parseFloat(t[4]);return[(parseFloat(t[1])%360+360)%360,u(parseFloat(t[2]),0,100),u(parseFloat(t[3]),0,100),u(isNaN(r)?1:r,0,1)]}return null},s.to.hex=function(){var e=a(arguments);return"#"+c(e[0])+c(e[1])+c(e[2])+(e[3]<1?c(Math.round(255*e[3])):"")},s.to.rgb=function(){var e=a(arguments);return e.length<4||1===e[3]?"rgb("+Math.round(e[0])+", "+Math.round(e[1])+", "+Math.round(e[2])+")":"rgba("+Math.round(e[0])+", "+Math.round(e[1])+", "+Math.round(e[2])+", "+e[3]+")"},s.to.rgb.percent=function(){var e=a(arguments),t=Math.round(e[0]/255*100),r=Math.round(e[1]/255*100),n=Math.round(e[2]/255*100);return e.length<4||1===e[3]?"rgb("+t+"%, "+r+"%, "+n+"%)":"rgba("+t+"%, "+r+"%, "+n+"%, "+e[3]+")"},s.to.hsl=function(){var e=a(arguments);return e.length<4||1===e[3]?"hsl("+e[0]+", "+e[1]+"%, "+e[2]+"%)":"hsla("+e[0]+", "+e[1]+"%, "+e[2]+"%, "+e[3]+")"},s.to.hwb=function(){var e=a(arguments),t="";return e.length>=4&&1!==e[3]&&(t=", "+e[3]),"hwb("+e[0]+", "+e[1]+"%, "+e[2]+"%"+t+")"},s.to.keyword=function(e){return i[e.slice(0,3)]}},function(e,t,r){"use strict";var n=r(5),a=Array.prototype.concat,o=Array.prototype.slice,i=e.exports=function(e){for(var t=[],r=0,i=e.length;r<i;r++){var l=e[r];n(l)?t=a.call(t,o.call(l)):t.push(l)}return t};i.wrap=function(e){return function(){return e(i(arguments))}}},function(e,t){e.exports=function(e){return!(!e||"string"==typeof e)&&(e instanceof Array||Array.isArray(e)||e.length>=0&&(e.splice instanceof Function||Object.getOwnPropertyDescriptor(e,e.length-1)&&"String"!==e.constructor.name))}},function(e,t,r){var n=r(2),a=r(8),o={};Object.keys(n).forEach((function(e){o[e]={},Object.defineProperty(o[e],"channels",{value:n[e].channels}),Object.defineProperty(o[e],"labels",{value:n[e].labels});var t=a(e);Object.keys(t).forEach((function(r){var n=t[r];o[e][r]=function(e){var t=function(t){if(null==t)return t;arguments.length>1&&(t=Array.prototype.slice.call(arguments));var r=e(t);if("object"==typeof r)for(var n=r.length,a=0;a<n;a++)r[a]=Math.round(r[a]);return r};return"conversion"in e&&(t.conversion=e.conversion),t}(n),o[e][r].raw=function(e){var t=function(t){return null==t?t:(arguments.length>1&&(t=Array.prototype.slice.call(arguments)),e(t))};return"conversion"in e&&(t.conversion=e.conversion),t}(n)}))})),e.exports=o},function(e,t,r){"use strict";e.exports={aliceblue:[240,248,255],antiquewhite:[250,235,215],aqua:[0,255,255],aquamarine:[127,255,212],azure:[240,255,255],beige:[245,245,220],bisque:[255,228,196],black:[0,0,0],blanchedalmond:[255,235,205],blue:[0,0,255],blueviolet:[138,43,226],brown:[165,42,42],burlywood:[222,184,135],cadetblue:[95,158,160],chartreuse:[127,255,0],chocolate:[210,105,30],coral:[255,127,80],cornflowerblue:[100,149,237],cornsilk:[255,248,220],crimson:[220,20,60],cyan:[0,255,255],darkblue:[0,0,139],darkcyan:[0,139,139],darkgoldenrod:[184,134,11],darkgray:[169,169,169],darkgreen:[0,100,0],darkgrey:[169,169,169],darkkhaki:[189,183,107],darkmagenta:[139,0,139],darkolivegreen:[85,107,47],darkorange:[255,140,0],darkorchid:[153,50,204],darkred:[139,0,0],darksalmon:[233,150,122],darkseagreen:[143,188,143],darkslateblue:[72,61,139],darkslategray:[47,79,79],darkslategrey:[47,79,79],darkturquoise:[0,206,209],darkviolet:[148,0,211],deeppink:[255,20,147],deepskyblue:[0,191,255],dimgray:[105,105,105],dimgrey:[105,105,105],dodgerblue:[30,144,255],firebrick:[178,34,34],floralwhite:[255,250,240],forestgreen:[34,139,34],fuchsia:[255,0,255],gainsboro:[220,220,220],ghostwhite:[248,248,255],gold:[255,215,0],goldenrod:[218,165,32],gray:[128,128,128],green:[0,128,0],greenyellow:[173,255,47],grey:[128,128,128],honeydew:[240,255,240],hotpink:[255,105,180],indianred:[205,92,92],indigo:[75,0,130],ivory:[255,255,240],khaki:[240,230,140],lavender:[230,230,250],lavenderblush:[255,240,245],lawngreen:[124,252,0],lemonchiffon:[255,250,205],lightblue:[173,216,230],lightcoral:[240,128,128],lightcyan:[224,255,255],lightgoldenrodyellow:[250,250,210],lightgray:[211,211,211],lightgreen:[144,238,144],lightgrey:[211,211,211],lightpink:[255,182,193],lightsalmon:[255,160,122],lightseagreen:[32,178,170],lightskyblue:[135,206,250],lightslategray:[119,136,153],lightslategrey:[119,136,153],lightsteelblue:[176,196,222],lightyellow:[255,255,224],lime:[0,255,0],limegreen:[50,205,50],linen:[250,240,230],magenta:[255,0,255],maroon:[128,0,0],mediumaquamarine:[102,205,170],mediumblue:[0,0,205],mediumorchid:[186,85,211],mediumpurple:[147,112,219],mediumseagreen:[60,179,113],mediumslateblue:[123,104,238],mediumspringgreen:[0,250,154],mediumturquoise:[72,209,204],mediumvioletred:[199,21,133],midnightblue:[25,25,112],mintcream:[245,255,250],mistyrose:[255,228,225],moccasin:[255,228,181],navajowhite:[255,222,173],navy:[0,0,128],oldlace:[253,245,230],olive:[128,128,0],olivedrab:[107,142,35],orange:[255,165,0],orangered:[255,69,0],orchid:[218,112,214],palegoldenrod:[238,232,170],palegreen:[152,251,152],paleturquoise:[175,238,238],palevioletred:[219,112,147],papayawhip:[255,239,213],peachpuff:[255,218,185],peru:[205,133,63],pink:[255,192,203],plum:[221,160,221],powderblue:[176,224,230],purple:[128,0,128],rebeccapurple:[102,51,153],red:[255,0,0],rosybrown:[188,143,143],royalblue:[65,105,225],saddlebrown:[139,69,19],salmon:[250,128,114],sandybrown:[244,164,96],seagreen:[46,139,87],seashell:[255,245,238],sienna:[160,82,45],silver:[192,192,192],skyblue:[135,206,235],slateblue:[106,90,205],slategray:[112,128,144],slategrey:[112,128,144],snow:[255,250,250],springgreen:[0,255,127],steelblue:[70,130,180],tan:[210,180,140],teal:[0,128,128],thistle:[216,191,216],tomato:[255,99,71],turquoise:[64,224,208],violet:[238,130,238],wheat:[245,222,179],white:[255,255,255],whitesmoke:[245,245,245],yellow:[255,255,0],yellowgreen:[154,205,50]}},function(e,t,r){var n=r(2);function a(e){var t=function(){for(var e={},t=Object.keys(n),r=t.length,a=0;a<r;a++)e[t[a]]={distance:-1,parent:null};return e}(),r=[e];for(t[e].distance=0;r.length;)for(var a=r.pop(),o=Object.keys(n[a]),i=o.length,l=0;l<i;l++){var s=o[l],u=t[s];-1===u.distance&&(u.distance=t[a].distance+1,u.parent=a,r.unshift(s))}return t}function o(e,t){return function(r){return t(e(r))}}function i(e,t){for(var r=[t[e].parent,e],a=n[t[e].parent][e],i=t[e].parent;t[i].parent;)r.unshift(t[i].parent),a=o(n[t[i].parent][i],a),i=t[i].parent;return a.conversion=r,a}e.exports=function(e){for(var t=a(e),r={},n=Object.keys(t),o=n.length,l=0;l<o;l++){var s=n[l];null!==t[s].parent&&(r[s]=i(s,t))}return r}},function(e,t,r){"use strict";r.r(t),r.d(t,"run",(function(){return ye})),r.d(t,"init",(function(){return me})),r.d(t,"convertBg",(function(){return ve})),r.d(t,"extend",(function(){return ke}));var n="(prefers-color-scheme: dark)",a="data_color_scheme_dark",o="".concat(1*new Date).concat(Math.round(10*Math.random())),i="data-darkmode-color-".concat(o),l="data-darkmode-bgcolor-".concat(o),s="data-darkmode-original-color-".concat(o),u="data-darkmode-original-bgcolor-".concat(o),c="data-darkmode-bgimage-".concat(o),h=window.getInnerHeight&&window.getInnerHeight()||window.innerHeight||document.documentElement.clientHeight,f=["TABLE","TR","TD","TH"],d=/ !important$/,g={hasInit:!1,begin:null,showFirstPage:null,error:null,mode:"",whitelist:{tagName:["MPCPS","IFRAME"]},needJudgeFirstPage:!0,delayBgJudge:!1,container:null,cssSelectorsPrefix:"",defaultLightTextColor:"#191919",defaultLightBgColor:"#fff",defaultDarkTextColor:"#a3a3a3",defaultDarkBgColor:"#191919",set:function(e,t,r){var n=t[r];switch(e){case"boolean":"boolean"==typeof n&&(this[r]=n);break;case"string":"string"==typeof n&&""!==n&&(this[r]=n);break;case"function":"function"==typeof n&&(this[r]=n);break;case"dom":n instanceof HTMLElement&&(this[r]=n)}}};function b(e,t,r){return t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r,e}function p(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function y(e,t){for(var r=0;r<t.length;r++){var n=t[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}function m(e,t,r){return t&&y(e.prototype,t),r&&y(e,r),Object.defineProperty(e,"prototype",{writable:!1}),e}var v=[],k=[],w=function(){function e(){p(this,e)}return m(e,[{key:"loopTimes",get:function(){return se.loopTimes}},{key:"isDarkmode",get:function(){return de.isDarkmode}},{key:"addCss",value:function(e,t){var r=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];(r?v:k).push(he.genCss(e,t.map((function(e){var t=e.key,r=e.value;return he.genCssKV(t,r)})).join("")))}}]),e}(),x=function(){function e(){p(this,e),b(this,"_plugins",[]),b(this,"length",0),b(this,"loopTimes",0),b(this,"firstPageStyle",""),b(this,"otherPageStyle",""),b(this,"firstPageStyleNoMQ",""),b(this,"otherPageStyleNoMQ","")}return m(e,[{key:"extend",value:function(e){this._plugins.push(new(e(w))),this.length++}},{key:"emit",value:function(e){for(var t=arguments.length,r=new Array(t>1?t-1:0),n=1;n<t;n++)r[n-1]=arguments[n];this._plugins.forEach((function(t){"function"==typeof t[e]&&t[e].apply(t,r)}))}},{key:"addCss",value:function(e){e?(this.firstPageStyle+=v.join(""),this.firstPageStyleNoMQ+=k.join("")):(this.otherPageStyle+=v.join(""),this.otherPageStyleNoMQ+=k.join(""))}},{key:"resetCss",value:function(){v=[],k=[]}}]),e}();function M(e){return(M="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(e){return typeof e}:function(e){return e&&"function"==typeof Symbol&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e})(e)}function _(e,t){for(var r=0;r<t.length;r++){var n=t[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}function C(e,t,r){return t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r,e}var j=function(){function e(t){!function(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}(this,e),C(this,"_queue",[]),C(this,"_idx",0),this._prefix=t}var t,r,n;return t=e,(r=[{key:"push",value:function(e){var t="".concat(this._prefix).concat(this._idx++);e.classList.add(t),this._queue.push({el:e,className:t,updated:!g.delayBgJudge})}},{key:"forEach",value:function(e){var t=[];for(this._queue.forEach((function(r,n){r.updated&&(t.unshift(n),M(e)&&e(r.el))}));t.length;)this._queue.splice(t.shift(),1)}},{key:"update",value:function(e){this._queue.forEach((function(t){t.updated||Array.prototype.some.call(e,(function(e){return!(1!==e.nodeType||!e.classList.contains(t.className)||(t.el=e,t.updated=!0,0))}))}))}}])&&_(t.prototype,r),n&&_(t,n),Object.defineProperty(t,"prototype",{writable:!1}),e}();function P(e,t){for(var r=0;r<t.length;r++){var n=t[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}function S(e,t,r){return t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r,e}var A=function(){function e(t){!function(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}(this,e),S(this,"_stack",[]),S(this,"_idx",0),this._prefix=t}var t,r,n;return t=e,(r=[{key:"push",value:function(e,t){var r="".concat(this._prefix).concat(this._idx++);e.classList.add(r),this._stack.unshift({el:e,className:r,cssKV:t,updated:!g.delayBgJudge})}},{key:"contains",value:function(e,t){var r=e.getBoundingClientRect(),n=[];for(this._stack.forEach((function(e,t){if(e.updated){e.rect||(e.rect=e.el.getBoundingClientRect());var a=e.rect;r.top>=a.bottom||r.bottom<=a.top||r.left>=a.right||r.right<=a.left||n.unshift(t)}}));n.length;){var a=this._stack.splice(n.shift(),1)[0];"function"==typeof t&&t(a)}}},{key:"update",value:function(e){this._stack.forEach((function(t){t.updated||Array.prototype.some.call(e,(function(e){return!(1!==e.nodeType||!e.classList.contains(t.className)||(t.el=e,t.updated=!0,0))}))}))}}])&&P(t.prototype,r),n&&P(t,n),Object.defineProperty(t,"prototype",{writable:!1}),e}();function O(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e,t){var r=null==e?null:"undefined"!=typeof Symbol&&e[Symbol.iterator]||e["@@iterator"];if(null==r)return;var n,a,o=[],i=!0,l=!1;try{for(r=r.call(e);!(i=(n=r.next()).done)&&(o.push(n.value),!t||o.length!==t);i=!0);}catch(e){l=!0,a=e}finally{try{i||null==r.return||r.return()}finally{if(l)throw a}}return o}(e,t)||function(e,t){if(!e)return;if("string"==typeof e)return B(e,t);var r=Object.prototype.toString.call(e).slice(8,-1);"Object"===r&&e.constructor&&(r=e.constructor.name);if("Map"===r||"Set"===r)return Array.from(e);if("Arguments"===r||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(r))return B(e,t)}(e,t)||function(){throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}()}function B(e,t){(null==t||t>e.length)&&(t=e.length);for(var r=0,n=new Array(t);r<t;r++)n[r]=e[r];return n}function E(e,t){for(var r=0;r<t.length;r++){var n=t[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}function T(e,t,r){return t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r,e}var N=function(){function e(){!function(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}(this,e),T(this,"_firstPageStyle",""),T(this,"_otherPageStyle",""),T(this,"isFinish",!1)}var t,r,o;return t=e,(r=[{key:"genCssKV",value:function(e,t){return"".concat(e,": ").concat(t," !important;")}},{key:"genCss",value:function(e,t){return"".concat("dark"===g.mode?"html.".concat(a," "):"").concat(g.cssSelectorsPrefix&&"".concat(g.cssSelectorsPrefix," "),".").concat(e,"{").concat(t,"}")}},{key:"addCss",value:function(e,t){this[t?"_firstPageStyle":"_otherPageStyle"]+=e,se.addCss(t)}},{key:"writeStyle",value:function(e){!e&&de.isDarkmode&&(this.isFinish=!0);var t=(de.isDarkmode?[{target:this,key:["_firstPageStyle","_otherPageStyle"],needMediaQuery:!0}]:[]).concat([{target:se,key:["firstPageStyle","otherPageStyle"],needMediaQuery:!0},{target:se,key:["firstPageStyleNoMQ","otherPageStyleNoMQ"],needMediaQuery:!1}]).map((function(t){var r=t.target,a=O(t.key,2),o=a[0],i=a[1],l=t.needMediaQuery,s="";e?s=o:(r[i]=r[o]+r[i],r[o]="",s=i);var u=r[s];return u?(r[s]="","dark"!==g.mode&&l?"@media ".concat(n," {").concat(u,"}"):u):""})).join("");t&&document.head.insertAdjacentHTML("beforeend",'<style type="text/css">'.concat(t,"</style>"))}}])&&E(t.prototype,r),o&&E(t,o),Object.defineProperty(t,"prototype",{writable:!1}),e}();function F(e,t){for(var r=0;r<t.length;r++){var n=t[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}function D(e,t,r){return t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r,e}function L(e){return function(e){if(Array.isArray(e))return q(e)}(e)||function(e){if("undefined"!=typeof Symbol&&null!=e[Symbol.iterator]||null!=e["@@iterator"])return Array.from(e)}(e)||function(e,t){if(!e)return;if("string"==typeof e)return q(e,t);var r=Object.prototype.toString.call(e).slice(8,-1);"Object"===r&&e.constructor&&(r=e.constructor.name);if("Map"===r||"Set"===r)return Array.from(e);if("Arguments"===r||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(r))return q(e,t)}(e)||function(){throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}()}function q(e,t){(null==t||t>e.length)&&(t=e.length);for(var r=0,n=new Array(t);r<t;r++)n[r]=e[r];return n}function I(e){var t;return(t=[e]).concat.apply(t,L(e.querySelectorAll("*")))}var z={"ue-table-interlace-color-single":"#fcfcfc","ue-table-interlace-color-double":"#f7faff"};var V=function(){function e(){!function(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}(this,e),D(this,"_nodes",[]),D(this,"_firstPageNodes",[]),D(this,"_delayNodes",[]),D(this,"showFirstPage",!1)}var t,r,n;return t=e,(r=[{key:"length",get:function(){return this._nodes.length}},{key:"set",value:function(){var e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:[];this._nodes=e}},{key:"get",value:function(){var e=[];return this._nodes.length?(e=this._nodes,de.isDarkmode&&(this._nodes=[])):this._delayNodes.length?(e=this._delayNodes,this._delayNodes=[]):g.container&&(e=g.container.querySelectorAll("*")),e}},{key:"delay",value:function(){var e=this;Array.prototype.forEach.call(this._nodes,(function(t){return e._delayNodes.push(t)})),this._nodes=[]}},{key:"hasDelay",value:function(){return this._delayNodes.length>0}},{key:"addFirstPageNode",value:function(e){this._firstPageNodes.push(e)}},{key:"showFirstPageNodes",value:function(){this._firstPageNodes.forEach((function(e){return e.style.visibility="visible"})),this.showFirstPage=!0}},{key:"emptyFirstPageNodes",value:function(){this._firstPageNodes=[]}}])&&F(t.prototype,r),n&&F(t,n),Object.defineProperty(t,"prototype",{writable:!1}),e}(),K=r(0),J=r.n(K),$=r(1),H=r.n($);function R(e,t){return function(e){if(Array.isArray(e))return e}(e)||function(e,t){var r=null==e?null:"undefined"!=typeof Symbol&&e[Symbol.iterator]||e["@@iterator"];if(null==r)return;var n,a,o=[],i=!0,l=!1;try{for(r=r.call(e);!(i=(n=r.next()).done)&&(o.push(n.value),!t||o.length!==t);i=!0);}catch(e){l=!0,a=e}finally{try{i||null==r.return||r.return()}finally{if(l)throw a}}return o}(e,t)||U(e,t)||function(){throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}()}function Q(e){return function(e){if(Array.isArray(e))return G(e)}(e)||function(e){if("undefined"!=typeof Symbol&&null!=e[Symbol.iterator]||null!=e["@@iterator"])return Array.from(e)}(e)||U(e)||function(){throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}()}function U(e,t){if(e){if("string"==typeof e)return G(e,t);var r=Object.prototype.toString.call(e).slice(8,-1);return"Object"===r&&e.constructor&&(r=e.constructor.name),"Map"===r||"Set"===r?Array.from(e):"Arguments"===r||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(r)?G(e,t):void 0}}function G(e,t){(null==t||t>e.length)&&(t=e.length);for(var r=0,n=new Array(t);r<t;r++)n[r]=e[r];return n}function W(e,t){for(var r=0;r<t.length;r++){var n=t[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}function X(e,t,r){return t in e?Object.defineProperty(e,t,{value:r,enumerable:!0,configurable:!0,writable:!0}):e[t]=r,e}H.a.windowtext=[0,0,0],H.a.transparent=[255,255,255,0];var Y=new RegExp(Object.keys(H.a).map((function(e){return"\\b".concat(e,"\\b")})).join("|"),"ig"),Z=/\brgba?\([^)]+\)/i,ee=/\brgba?\([^)]+\)/gi,te=function(e){return e.replace(d,"")},re=function(e,t){return te(e).replace(Y,(function(e){if(!t&&"transparent"===e)return e;var r=H.a[e.toLowerCase()];return"".concat(r.length>3?"rgba":"rgb","(").concat(r.toString(),")")}))},ne=function(e){if(!e||e.length<1)return"";if(1===e.length)return e[0];for(var t=e.shift(),r=e.shift();r;){var n=J()(r);t=J()(t).mix(n,n.alpha()),r=e.shift()}return t},ae=function(e){var t=re(e);return Z.test(t)?t:""},oe=function(e){return(299*e[0]+587*e[1]+114*e[2])/1e3},ie=function(e,t){var r=e/oe(t),n=Math.min(255,t[0]*r),a=Math.min(255,t[1]*r),o=Math.min(255,t[2]*r);return 0===a||255===n||255===o?a=(1e3*e-299*n-114*o)/587:0===n?n=(1e3*e-587*a-114*o)/299:0!==o&&255!==a||(o=(1e3*e-299*n-587*a)/114),J.a.rgb(n,a,o)},le=function(){function e(){!function(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}(this,e),X(this,"_idx",0),X(this,"_defaultDarkTextColorRgb",J()(g.defaultDarkTextColor).rgb().array()),X(this,"_defaultDarkBgColorRgb",J()(g.defaultDarkBgColor).rgb().array()),X(this,"_defaultDarkBgColorHSL",J()(g.defaultDarkBgColor).hsl().array()),X(this,"_defaultDarkTextColorBrightness",oe(this._defaultDarkTextColorRgb)),X(this,"_defaultDarkBgColorBrightness",oe(this._defaultDarkBgColorRgb)),X(this,"_defaultDarkBgColorHslBrightness",this._defaultDarkBgColorHSL[2]),X(this,"_maxLimitOffsetBrightness",this._defaultDarkTextColorBrightness-this._defaultDarkBgColorBrightness),X(this,"isDarkmode",!1)}var t,r,n;return t=e,(r=[{key:"_adjustTextBrightness",value:function(e,t){var r=t.rgb().array(),n=t.alpha(),a=oe(r)*n+this._defaultDarkBgColorBrightness*(1-n),o=e.rgb().array(),i=e.hsl().array(),l=e.alpha(),s=oe(o),u=Math.abs(a-s);if(s>=250)return e;if(u>this._maxLimitOffsetBrightness&&a<=this._defaultDarkBgColorBrightness+2)return ie(this._maxLimitOffsetBrightness+a,o).alpha(l);if(u>=65)return e;if(a>=100){if(i[2]>50){i[2]=90-i[2];var c=J.a.hsl.apply(J.a,Q(i)).alpha(l);return this._adjustTextBrightness(c,t)}return ie(Math.min(this._maxLimitOffsetBrightness,a-65),o).alpha(l)}if(i[2]<=40){i[2]=90-i[2];var h=J.a.hsl.apply(J.a,Q(i)).alpha(l);return this._adjustTextBrightness(h,t)}return ie(Math.min(this._maxLimitOffsetBrightness,a+65),o).alpha(l)}},{key:"_adjustBackgroundBrightness",value:function(e){var t=e.rgb().array(),r=e.hsl().array(),n=e.alpha(),a=oe(t),o=e;return 0===r[1]&&r[2]>40||a>250?o=J.a.hsl(0,0,Math.min(100,100+this._defaultDarkBgColorHslBrightness-r[2])):a>190?o=ie(190,t).alpha(n):r[2]<22&&(r[2]=22,o=J.a.hsl.apply(J.a,Q(r))),o.alpha(n).rgb()}},{key:"_adjustBrightness",value:function(e,t,r){var n,a=e.alpha(),o="";if(r.isBgColor){if(t.getAttribute(c)&&a>=.05&&t.removeAttribute(c),n=this._adjustBackgroundBrightness(e),!r.hasInlineColor){var s=t.getAttribute(i)||g.defaultLightTextColor,u=n||e,h=this._adjustBrightness(J()(s),t,{isTextColor:!0,parentElementBgColorStr:u});h.newColor?o+=he.genCssKV("color",h.newColor):o+=he.genCssKV("color",s)}}else if(r.isTextColor||r.isBorderColor){var f=r.parentElementBgColorStr||r.isTextColor&&t.getAttribute(l)||g.defaultDarkBgColor,d=J()(f);t.getAttribute(c)||(n=this._adjustTextBrightness(e,d),se.emit("afterConvertTextColor",t,{fontColor:n,bgColor:d}))}else r.isTextShadow&&(t.getAttribute(c)||(n=this._adjustBackgroundBrightness(e)));return{newColor:n&&e.toString()!==n.toString()&&n.alpha(a).rgb(),extStyle:o}}},{key:"_try",value:function(e){try{return e()}catch(e){console.log("An error occurred when running the dark mode conversion algorithm\n",e),"function"==typeof g.error&&g.error(e)}}},{key:"convert",value:function(e){var t=this;se.resetCss(),se.emit("beforeConvertNode",e);var r,n,a="";if(this.isDarkmode){var o=e.nodeName;if(g.whitelist.tagName.indexOf(o)>-1)return"";var h,b,p=e.style,y="",m=!1,v=!1,k=!1,w=(p.cssText&&p.cssText.split(";")||[]).map((function(e){var t=e.indexOf(":");return[e.slice(0,t).toLowerCase(),e.slice(t+1)].map((function(e){return(e||"").replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g,"")}))})).filter((function(e){var t=R(e,2),r=t[0],n=t[1];return"color"===r?m=!0:/background/i.test(r)&&(v=!0,"background-position"===r?h=n:"background-size"===r&&(b=n)),(/background/i.test(r)||/^(-webkit-)?border-image/.test(r))&&/url\([^)]*\)/i.test(n)&&(k=!0),["-webkit-border-image","border-image","color","background-color","background-image","background","border","border-top","border-right","border-bottom","border-left","border-color","border-top-color","border-right-color","border-bottom-color","border-left-color","-webkit-text-fill-color","-webkit-text-stroke","-webkit-text-stroke-color","text-shadow"].indexOf(r)>-1})).sort((function(e,t){var r=R(e,1)[0],n=R(t,1)[0];return"color"===r||"background-image"===r&&"background-color"===n||0===n.indexOf("-webkit-text")?1:-1}));f.indexOf(o)>-1&&!v&&this._try((function(){var t=function(e){var t=null;return Array.prototype.some.call(e.classList,(function(e){return!!z[e]&&(t=z[e],!0)})),t}(e);t||(t=e.getAttribute("bgcolor")),t&&(w.unshift(["background-color",J()(t).toString()]),v=!0)})),"FONT"!==o||m||this._try((function(){var t=e.getAttribute("color");t&&(w.push(["color",J()(t).toString()]),m=!0)}));var x="",M="",_=0;if(w.some((function(e,r){var n=R(e,2),a=n[0],o=n[1];return t._try((function(){if(0!==a.indexOf("-webkit-text"))return _=r,!0;switch(a){case"-webkit-text-fill-color":x=ae(o);break;case"-webkit-text-stroke":var e=o.split(" ");2===e.length&&(M=ae(e[1]));break;case"-webkit-text-stroke-color":M=ae(o)}return!1}))})),x&&(m?w[w.length-1]=["-webkit-text-fill-color",x]:(w.push(["-webkit-text-fill-color",x]),m=!0)),_&&(w.splice(0,_),M&&w.unshift(["-webkit-text-stroke-color",M])),w.forEach((function(r){var n=R(r,2),a=n[0],o=n[1];return t._try((function(){var r,n=o,f=!1,w=/^background/.test(a),x="text-shadow"===a,M=["-webkit-text-stroke-color","color","-webkit-text-fill-color"].indexOf(a),_=/^border/.test(a),C=/gradient/.test(o),j=[],P="";if(o=re(o,C),Z.test(o)){if(C){for(var S=ee.exec(o);S;)j.push(S[0]),S=ee.exec(o);r=ne(j)}var A=0;o=o.replace(ee,(function(n){C&&(n=r,f=!0);var a=t._adjustBrightness(J()(n),e,{isBgColor:w,isTextShadow:x,isTextColor:M>-1,isBorderColor:_,hasInlineColor:m}),o=!k&&a.newColor;if(P+=a.extStyle,w||M>0){var h=w?l:i,d=w?u:s,b=o?o.toString():n;0===A&&I(e).forEach((function(e){var t=e.getAttribute(d)||g.defaultLightBgColor;e.setAttribute(h,b),e.setAttribute(d,t.split("|").concat(n).join("|")),w&&J()(b).alpha()>=.05&&e.getAttribute(c)&&e.removeAttribute(c)}))}return o&&(f=!0),A+=1,o||n})).replace(/\s?!\s?important/gi,"")}if(P&&(y+=P),!(e instanceof SVGElement)){var O=/^background/.test(a),B=/^(-webkit-)?border-image/.test(a);if((O||B)&&/url\([^)]*\)/i.test(o)){f=!0;var E=ne((e.getAttribute(u)||g.defaultLightBgColor).split("|"));if(o=o.replace(/^(.*?)url\(([^)]*)\)(.*)$/i,(function(t){var r=t,n="",o="",i="";return"1"!==e.getAttribute(c)&&I(e).forEach((function(e){return e.setAttribute(c,"1")})),O?(r="linear-gradient(".concat("rgba(0,0,0,0.2)",", ").concat("rgba(0,0,0,0.2)","),").concat(t),i=he.genCssKV(a,"".concat(r,",linear-gradient(").concat(E,", ").concat(E,")")),h&&(n="top left,".concat(h),y+=he.genCssKV("background-position","".concat(n)),i+=he.genCssKV("background-position","".concat(n,",top left"))),b&&(o="100%,".concat(b),y+=he.genCssKV("background-size","".concat(o)),i+=he.genCssKV("background-size","".concat(o,",100%"))),ce.push(e,i)):!v&&ce.push(e,he.genCssKV("background-image","linear-gradient(".concat("rgba(0,0,0,0.2)",", ").concat("rgba(0,0,0,0.2)","),linear-gradient(").concat(E,", ").concat(E,")"))),r})),!m){var T=ne((e.getAttribute(s)||g.defaultLightTextColor).split("|"));y+=he.genCssKV("color",T),I(e).forEach((function(e){return e.setAttribute(i,T)}))}}}f&&(d.test(n)&&(p[a]=te(n)),C?ce.push(e,he.genCssKV(a,o)):y+=he.genCssKV(a,o))}))})),y){e.setAttribute("data-style",p.cssText);var C="".concat("js_darkmode__").concat(this._idx++);e.classList.add(C),a+=y?he.genCss(C,y):""}r=e,n="",Array.prototype.forEach.call(r.childNodes,(function(e){3===e.nodeType&&(n+=e.nodeValue.replace(/\s/g,""))})),n.length>0&&(g.delayBgJudge?ue.push(e):ce.contains(e,(function(e){a+=he.genCss(e.className,e.cssKV)})))}return se.emit("afterConvertNode",e),a}}])&&W(t.prototype,r),n&&W(t,n),Object.defineProperty(t,"prototype",{writable:!1}),e}(),se=new x,ue=new j("".concat("js_darkmode__","text__")),ce=new A("".concat("js_darkmode__","bg__")),he=new N,fe=new V,de=new le,ge=new RegExp("".concat("js_darkmode__","[^ ]+"),"g"),be=null,pe=function(e){var t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{type:"dom"};if(t.force&&(he.isFinish=!1),!he.isFinish)try{de.isDarkmode=g.mode?"dark"===g.mode:e.matches,"dom"===t.type?(de.isDarkmode&&"function"==typeof g.begin&&g.begin(fe.hasDelay()),Array.prototype.forEach.call(fe.get(),(function(e){if(de.isDarkmode&&e.className&&"string"==typeof e.className&&(e.className=e.className.replace(ge,"")),de.isDarkmode||se.length)if(g.needJudgeFirstPage){var t=e.getBoundingClientRect(),r=t.top,n=t.bottom;r<=0&&n<=0?he.addCss(de.convert(e),!1):r>0&&r<h||n>0&&n<h?(fe.addFirstPageNode(e),he.addCss(de.convert(e),!0)):(g.needJudgeFirstPage=!1,he.writeStyle(!0),fe.showFirstPageNodes(),"function"==typeof g.showFirstPage&&g.showFirstPage(),he.addCss(de.convert(e),!1))}else he.addCss(de.convert(e),!1)})),se.loopTimes++):"bg"===t.type&&de.isDarkmode&&ue.forEach((function(e){return ce.contains(e,(function(e){he.addCss(he.genCss(e.className,e.cssKV),!1)}))})),(g.needJudgeFirstPage||!g.needJudgeFirstPage&&!fe.showFirstPage)&&"function"==typeof g.showFirstPage&&g.showFirstPage(),he.writeStyle(),fe.emptyFirstPageNodes(),de.isDarkmode||(g.needJudgeFirstPage=!1,g.delayBgJudge=!1,null===g.container&&"dom"===t.type&&fe.length&&fe.delay())}catch(e){console.log("An error occurred when running the dark mode conversion algorithm\n",e),"function"==typeof g.error&&g.error(e)}};function ye(e,t){me(t),fe.set(e),pe(be,{force:!0,type:"dom"})}function me(){var e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};if(!g.hasInit){g.hasInit=!0;var t=g.whitelist.tagName;e.whitelist&&e.whitelist.tagName instanceof Array&&e.whitelist.tagName.forEach((function(e){e=e.toUpperCase(),-1===t.indexOf(e)&&t.push(e)})),["dark","light"].indexOf(e.mode)>-1&&(g.set("string",e,"mode"),document.getElementsByTagName("html")[0].classList.add(a)),g.set("function",e,"begin"),g.set("function",e,"showFirstPage"),g.set("function",e,"error"),g.set("boolean",e,"needJudgeFirstPage"),g.set("boolean",e,"delayBgJudge"),g.set("dom",e,"container"),g.set("string",e,"cssSelectorsPrefix"),g.set("string",e,"defaultLightTextColor"),g.set("string",e,"defaultLightBgColor"),g.set("string",e,"defaultDarkTextColor"),g.set("string",e,"defaultDarkBgColor"),!g.mode&&null===be&&window.matchMedia&&(be=window.matchMedia(n)).addListener(pe)}}function ve(e){fe.set(e),null!==g.container&&(ce.update(e),ue.update(e)),pe(be,{force:!0,type:"bg"})}function ke(e){e.forEach((function(e){return se.extend(e)}))}}])}));</script><script nonce="187699337" reportloaderror="" type="text/javascript">var __INLINE_SCRIPT__=function(){"use strict";function t(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function e(t,e){for(var n=0;n<e.length;n++){var r=e[n];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}function n(t,e){return n=Object.setPrototypeOf||function(t,e){return t.__proto__=e,t},n(t,e)}function r(t){return r="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(t){return typeof t}:function(t){return t&&"function"==typeof Symbol&&t.constructor===Symbol&&t!==Symbol.prototype?"symbol":typeof t},r(t)}function o(t,e){if(e&&("object"===r(e)||"function"==typeof e))return e;if(void 0!==e)throw new TypeError("Derived constructors may only return object or undefined");return function(t){if(void 0===t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return t}(t)}function i(t){return i=Object.setPrototypeOf?Object.getPrototypeOf:function(t){return t.__proto__||Object.getPrototypeOf(t)},i(t)}function u(t){var e=function(){if("undefined"==typeof Reflect||!Reflect.construct)return!1;if(Reflect.construct.sham)return!1;if("function"==typeof Proxy)return!0;try{return Boolean.prototype.valueOf.call(Reflect.construct(Boolean,[],(function(){}))),!0}catch(t){return!1}}();return function(){var n,r=i(t);if(e){var u=i(this).constructor;n=Reflect.construct(r,arguments,u)}else n=r.apply(this,arguments);return o(this,n)}}var c=function(r){return function(r){var o=!1,i=document.querySelectorAll("#js_content")[0],c={appmsgid:window.appmsgid,pointerEvents:!1,heightAnimate:!1},a=function(t,e){return 1===t.length&&t[0].tagName&&t[0].tagName.toLowerCase()===e};return function(r){!function(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function");t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,writable:!0,configurable:!0}}),Object.defineProperty(t,"prototype",{writable:!1}),e&&n(t,e)}(y,r);var f,s,p,l=u(y);function y(){return t(this,y),l.apply(this,arguments)}return f=y,(s=[{key:"afterConvertNode",value:function(t){if(!this.loopTimes){if(!o){var e=navigator.userAgent;/(iPhone|iPad|iPod|iOS|mac\sos)/i.test(e)&&i.classList.add("fix_apple_default_style"),o=!0}if("animate"===t.tagName&&"height"===t.getAttribute("attributeName")){var n=t.getAttribute("repeatCount");("indefinite"===n||n>"10")&&"click"!==t.getAttribute("begin")&&"click"!==t.getAttribute("end")&&(t.setAttribute("repeatCount","undefined"),t.setAttribute("attributeName","undefined"),(new Image).src="https://mp.weixin.qq.com/mp/jsmonitor?idkey=306525_1_1")}try{var r=t.parentNode.id;if(("js_content"===r||"js_secopen_content"===r)&&"p"===t.tagName.toLowerCase()){var u=t.childNodes;""===t.textContent&&(a(u,"br")||1===u.length&&a(u[0].childNodes,"br"))&&(t.previousElementSibling.style.marginBottom="0em",t.style.marginBottom="0em")}}catch(t){if("undefined"!=typeof WX_BJ_REPORT&&WX_BJ_REPORT.BadJs){var f=JSON.stringify(c);WX_BJ_REPORT.BadJs.report("domFilter",f,{mid:"mmbizwap:domMonitor",view:"wap_appmsg"})}}}}}])&&e(f.prototype,s),p&&e(f,p),Object.defineProperty(f,"prototype",{writable:!1}),y}(r)}};return window.__second_open__||(window.DomFilter=c()),c}();</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+(function () {
+  if (!window.__second_open__ && window.Darkmode) { // 非秒开，秒开的逻辑写在skeleton.js里
+    var cost = 0; // 记录Darkmode首屏渲染耗时
+    window.Darkmode.extend([window.DomFilter]); // 插件注册
+    window.Darkmode.run(document.querySelectorAll('#js_content *'), {
+      mode: '', // ''|'dark'|'light', 空表示跟随系统
+      defaultDarkBgColor: '',
+      error: function () {
+        (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_0_1'; // 上报conver出错 H5
+      },
+      begin: function (isSwitch) {
+        (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_2_1'; // 上报Darkmode H5 PV
+        isSwitch && ((new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_4_1'); // 上报Darkmode H5 PV（仅含从LM切换到DM的情况）
+
+        cost = new Date() * 1; // 记录开始渲染的时间
+      },
+      showFirstPage: function () {
+        cost = new Date() * 1 - cost; // 记录首屏渲染耗时
+        var isTop = (document.documentElement.scrollTop || window.pageYOffset || document.body.scrollTop) === 0;
+        // 上报Darkmode耗时大盘数据
+        if (cost <= 10) {
+          (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_6_1'; // 上报Darkmode H5 首屏渲染时间在10ms以内（含10ms）PV
+          isTop && ((new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_13_1'); // 上报Darkmode H5 首屏渲染时间在10ms以内（含10ms）PV - 无滚动
+        } else if (cost > 10 && cost <= 20) {
+          (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_7_1'; // 上报Darkmode H5 首屏渲染时间在(10ms, 20ms]之间PV
+          isTop && ((new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_14_1'); // 上报Darkmode H5 首屏渲染时间在(10ms, 20ms]之间PV - 无滚动
+        } else if (cost > 20 && cost <= 30) {
+          (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_8_1'; // 上报Darkmode H5 首屏渲染时间在(20ms, 30ms]之间PV
+          isTop && ((new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_15_1'); // 上报Darkmode H5 首屏渲染时间在(20ms, 30ms]之间PV - 无滚动
+        } else if (cost > 30 && cost <= 40) {
+          (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_9_1'; // 上报Darkmode H5 首屏渲染时间在(30ms, 40ms]之间PV
+          isTop && ((new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_16_1'); // 上报Darkmode H5 首屏渲染时间在(30ms, 40ms]之间PV - 无滚动
+        } else if (cost > 40 && cost <= 50) {
+          (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_10_1'; // 上报Darkmode H5 首屏渲染时间在(40ms, 50ms]之间PV
+          isTop && ((new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_17_1'); // 上报Darkmode H5 首屏渲染时间在(40ms, 50ms]之间PV - 无滚动
+        } else if (cost > 50 && cost <= 60) {
+          (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_11_1'; // 上报Darkmode H5 首屏渲染时间在(50ms, 60ms]之间PV
+          isTop && ((new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_18_1'); // 上报Darkmode H5 首屏渲染时间在(50ms, 60ms]之间PV - 无滚动
+        } else {
+          (new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_12_1'; // 上报Darkmode H5 首屏渲染时间在60ms以上（不含60ms）PV
+          isTop && ((new Image()).src = 'https://mp.weixin.qq.com/mp/jsmonitor?idkey=125617_19_1'); // 上报Darkmode H5 首屏渲染时间在60ms以上（不含60ms）PV - 无滚动
+        }
+      }
+    });
+    document.getElementById('js_content').style.visibility = 'visible';
+  }
+})();
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+(function(_g){
+    _g.appmsg_like_type = "2" * 1 ? "2" * 1 : 1;
+    // _g.appmsg_like_type = 2;
+    _g.clientversion = "";
+    _g.passparam = ""; // 看一看带参数
+    if(!_g.msg_link) {
+      _g.msg_link = "http://mp.weixin.qq.com/s?__biz=Mzg3NTA4OTQ4OQ==&amp;mid=2247485091&amp;idx=1&amp;sn=4de752a0fc187ddd89536f3cdff163f6&amp;chksm=cec79d9df9b0148be50073056c7fb7ea1087f79844ad941aa173d30e57c18766ef2bb23c8b2c#rd";
+    }
+    _g.appmsg_type = "9"; // 后台图文消息类型
+    _g.devicetype = ""; // devicetype
+})(window);
+// 已翻译
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+// 企业微信里置灰公众号名称
+(function() {
+  var ua = window.navigator.userAgent;
+  if (/MicroMessenger\/([\d\.]+)/i.test(ua) && /wxwork/i.test(ua)) {
+    var profileName = document.getElementById('js_name');
+    var authorName = document.getElementById('js_author_name');
+    var accountNames = document.getElementsByClassName('account_nickname_inner');
+    if (profileName) {
+      profileName.classList.add('tips_global_primary');
+    }
+    if (authorName) {
+      authorName.classList.add('tips_global_primary');
+    }
+    if (accountNames && accountNames.length) {
+      accountNames[0].classList.add('tips_global_primary');
+    }
+  }
+})();
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+// 安卓插入米大师 h5 sdk
+(function() {
+  var ua = navigator.userAgent;
+  if (ua.indexOf("MicroMessenger") != -1 && ua.indexOf("Android") != -1){
+    var script = document.createElement('script');
+    var head = document.getElementsByTagName('head')[0];
+    script.type = 'text/javascript';
+    script.src = "https://midas.gtimg.cn/h5sdk/js/api/h5sdk.js";
+    head.appendChild(script);
+  }
+})();
+</script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+var real_show_page_time = +new Date();
+if (!!window.addEventListener){
+  window.addEventListener("load", function(){
+    window.onload_endtime = +new Date();
+  });
+}
+</script>
+<script nomodule="" nonce="187699337" reportloaderror="">new Image().src='https://mp.weixin.qq.com/mp/jsmonitor?idkey=66881_111_1&t='+Math.random();</script>
+<script nomodule="" nonce="187699337" reportloaderror="">!function(){var e=document,t=e.createElement("script");if(!("noModule"in t)&&"onbeforeload"in t){var n=!1;e.addEventListener("beforeload",(function(e){if(e.target===t)n=!0;else if(!e.target.hasAttribute("nomodule")||!n)return;e.preventDefault()}),!0),t.type="module",t.src=".",e.head.appendChild(t),t.remove()}}();</script>
+<script id="vite-legacy-polyfill" nomodule="" nonce="187699337" reportloaderror="" src="//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/polyfills-legacy.0f2a9208.js"></script>
+<script data-src="//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/../mmbizappmsg/assets/appmsg-legacy.6f138bc6.js" id="vite-legacy-entry" nomodule="" nonce="187699337" reportloaderror="">System.import(document.getElementById('vite-legacy-entry').getAttribute('data-src'))</script>
+<link href="http://res.wx.qq.com/mmbizwap/zh_CN/htmledition/style/page/appmsg_new/mod/weui_a11y5df5b9.css" rel="stylesheet" reportloaderror="" type="text/css"/>
+<script nonce="187699337" reportloaderror="" src="//res.wx.qq.com/mmbizwap/zh_CN/htmledition/js/lib/wa-helper.min5df5b9.js" type="text/javascript"></script>
+<script nonce="187699337" reportloaderror="" type="text/javascript">
+  // WAH.default.init()
+</script>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_colon" style="display:none">：</span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_comma" style="display:none">，</span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_period" style="display:none">。</span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_space" style="display:none"> </span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_type_video" style="display:none">视频</span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_type_weapp" style="display:none">小程序</span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_zan_btn_txt" style="display:none">赞</span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_zan_btn_tips" style="display:none">，轻点两下取消赞</span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_like_btn_txt" style="display:none">在看</span>
+<span aria-hidden="true" class="weui-a11y_ref" id="js_a11y_like_btn_tips" style="display:none">，轻点两下取消在看</span>
+</body>
+</html>
