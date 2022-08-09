@@ -1,6 +1,21 @@
 ### 【国际英语角】公众号（截止2022/5/1）
 <br/>
 
+- [八月特辑 || 日本媒体工作者组织起来，反对性别暴力，争取性别平等](https://internationalismencorner.github.io/EnCorner/html/八月特辑__日本媒体工作者组织起来，反对性别暴力，争取性别平等.html)
+<br/>
+
+- [八月特辑 || 不夺权就改变世界——超越国家？](https://internationalismencorner.github.io/EnCorner/html/八月特辑__不夺权就改变世界——超越国家？.html)
+<br/>
+
+- [八月特辑 || 性别的后事：主权、亲密关系和土耳其跨性别穆斯林的葬礼](https://internationalismencorner.github.io/EnCorner/html/八月特辑__性别的后事：主权、亲密关系和土耳其跨性别穆斯林的葬礼.html)
+<br/>
+
+- [七月特辑 || 微观男性沙文主义：夫妻间的隐性暴力（1998）](https://internationalismencorner.github.io/EnCorner/html/七月特辑__微观男性沙文主义：夫妻间的隐性暴力（1998）.html)
+<br/>
+
+- [七月特辑 || 「穷情影像」与生殖不公：对《何以为家》的评论](https://internationalismencorner.github.io/EnCorner/html/七月特辑__「穷情影像」与生殖不公：对《何以为家》的评论.html)
+<br/>
+
 - [六月特辑 || 关于堕胎权的战斗已经开始](https://internationalismencorner.github.io/EnCorner/html/六月特辑__关于堕胎权的战斗已经开始.html)
 <br/>
 
