@@ -7,7 +7,7 @@
 - [时事追踪 || 道德警察、伊朗的库尔德人和一场潜在的革命](https://internationalismencorner.github.io/EnCorner/html/时事追踪__道德警察、伊朗的库尔德人和一场潜在的革命.html)
 <br/>
 
-- [这是人们会说起的一年，\n这是人们说起就沉默的一年](https://internationalismencorner.github.io/EnCorner/html/这是人们会说起的一年，_n这是人们说起就沉默的一年。_n_n老人看着年轻人死去，_n傻瓜看着聪明人死去。_n_n大地不再生产，它吞噬。_n天空不下雨，只下铁。_n_n布莱希特，1940.html)
+- [这是人们会说起的一年，\n这是人们说起就沉默的一年](https://internationalismencorner.github.io/EnCorner/html/这是人们会说起的一年，_n这是人们说起就沉默的一年。_n_n老人看着年轻人死去，_n傻瓜看着聪明人死去。_n_n大地不再生产，它吞噬。_n天空不下雨，只下铁.html)
 <br/>
 
 - [九月特辑 || 放大假：对工作的抵制](https://internationalismencorner.github.io/EnCorner/html/九月特辑__放大假：对工作的抵制.html)
@@ -31,7 +31,7 @@
 - [六月特辑 || 关于堕胎权的战斗已经开始](https://internationalismencorner.github.io/EnCorner/html/六月特辑__关于堕胎权的战斗已经开始.html)
 <br/>
 
-- [六月特辑 || 从#MeToo到#WeStrike：一种女性政治](https://internationalismencorner.github.io/EnCorner/html/六月特辑__从#MeToo到#WeStrike：一种女性政治.html)
+- [六月特辑 || 从#MeToo到#WeStrike：一种女性政治](https://internationalismencorner.github.io/EnCorner/html/六月特辑__从%23MeToo到%23WeStrike：一种女性政治.html)
 <br/>
 
 - [六月特辑 || “FEMICIDE”——一个名字的力量](https://internationalismencorner.github.io/EnCorner/html/六月特辑__“FEMICIDE”——一个名字的力量.html)
@@ -310,7 +310,7 @@
 - [对话 || 走进西雅图国会山自治区](https://internationalismencorner.github.io/EnCorner/html/20200629_211037_1_对话__走进西雅图国会山自治区.html)
 <br/>
 
-- [#Lenin](https://internationalismencorner.github.io/EnCorner/html/20200617_173416_1_#Lenin.html)
+- [#Lenin](https://internationalismencorner.github.io/EnCorner/html/20200617_173416_1_%23Lenin.html)
 <br/>
 
 - [通讯 || 美国共产党对George Floyd事件的声明](https://internationalismencorner.github.io/EnCorner/html/20200602_190000_1_通讯__美国共产党对GeorgeFloyd事件的声明.html)
