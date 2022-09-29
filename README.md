@@ -7,7 +7,7 @@
 - [时事追踪 || 道德警察、伊朗的库尔德人和一场潜在的革命](https://internationalismencorner.github.io/EnCorner/html/时事追踪__道德警察、伊朗的库尔德人和一场潜在的革命.html)
 <br/>
 
-- [这是人们会说起的一年，\n这是人们说起就沉默的一年](https://internationalismencorner.github.io/EnCorner/html/这是人们会说起的一年.html)
+- [这是人们会说起的一年，这是人们说起就沉默的一年](https://internationalismencorner.github.io/EnCorner/html/这是人们会说起的一年.html)
 <br/>
 
 - [九月特辑 || 放大假：对工作的抵制](https://internationalismencorner.github.io/EnCorner/html/九月特辑__放大假：对工作的抵制.html)
