@@ -1,6 +1,21 @@
 ### 【国际英语角】公众号（截止2022/9/29）
 <br/>
 
+- [十一月特辑 || 非必要不做爱？新冠疫情与「亲密」的终结](https://internationalismencorner.github.io/EnCorner/html/十一月特辑__非必要不做爱？新冠疫情与「亲密」的终结.html)
+<br/>
+
+- [抽送 || 上野千鹤子×铃木良美《始于极限》](https://internationalismencorner.github.io/EnCorner/html/抽送__上野千鹤子×铃木良美《始于极限》.html)
+<br/>
+
+- [转载 || 声援 Library Genesis 和 Sci-Hub（内含Z-Lib镜像链接）](https://internationalismencorner.github.io/EnCorner/html/转载__声援LibraryGenesis和Sci-Hub（内含Z-Lib镜像链接）.html)
+<br/>
+
+- [十一月特辑 || 一个都不能少：一股怒潮](https://internationalismencorner.github.io/EnCorner/html/十一月特辑__一个都不能少：一股怒潮.html)
+<br/>
+
+- [十月特辑 || “让我们拿回知识，让我们拿回生命”](https://internationalismencorner.github.io/EnCorner/html/十月特辑__“让我们拿回知识，让我们拿回生命”.html)
+<br/>
+
 - [转载 || 彩虹古巴：同性婚姻合法化是胜利，但不是我们的终点](https://internationalismencorner.github.io/EnCorner/html/转载__彩虹古巴：同性婚姻合法化是胜利，但不是我们的终点.html)
 <br/>
 
