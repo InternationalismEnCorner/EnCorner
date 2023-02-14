@@ -1,4 +1,37 @@
-### 【国际英语角】公众号（截止2022/9/29）
+### 【国际英语角】公众号（截止2023/2/14）
+<br/>
+
+- [二月特辑 || 人工智能背后的隐性劳动剥削](https://internationalismencorner.github.io/EnCorner/html/二月特辑__人工智能背后的隐性劳动剥削.html)
+<br/>
+
+- [二月特辑 || 女性的斗争和伊朗“自上而来的解放”](https://internationalismencorner.github.io/EnCorner/html/二月特辑__女性的斗争和伊朗“自上而来的解放”.html)
+<br/>
+
+- [二月特辑 || 养老金改革会终结马克龙吗？](https://internationalismencorner.github.io/EnCorner/html/二月特辑__养老金改革会终结马克龙吗？.html)
+<br/>
+
+- [一月特辑‖把混乱作为统治策略？巴西的反政治、威权主义和民主前景](https://internationalismencorner.github.io/EnCorner/html/一月特辑‖把混乱作为统治策略？巴西的反政治、威权主义和民主前景.html)
+<br/>
+
+- [微信红包封面定制快速过审指南](https://internationalismencorner.github.io/EnCorner/html/微信红包封面定制快速过审指南.html)
+<br/>
+
+- [最简单的话已足够……](https://internationalismencorner.github.io/EnCorner/html/最简单的话已足够…….html)
+<br/>
+
+- [转载 || 边疆马克思主义与俄国革命的边缘：阅读指南](https://internationalismencorner.github.io/EnCorner/html/转载__边疆马克思主义与俄国革命的边缘：阅读指南.html)
+<br/>
+
+- [十二月特辑 || 保护老年人还是拯救经济？](https://internationalismencorner.github.io/EnCorner/html/十二月特辑__保护老年人还是拯救经济？.html)
+<br/>
+
+- [转载 || 反映在自身历史中的女性](https://internationalismencorner.github.io/EnCorner/html/转载__反映在自身历史中的女性.html)
+<br/>
+
+- [十一月特辑 || 锻炼的准备与护理](https://internationalismencorner.github.io/EnCorner/html/十一月特辑__锻炼的准备与护理.html)
+<br/>
+
+- [十一月特辑 || 以人为代价的世界杯](https://internationalismencorner.github.io/EnCorner/html/十一月特辑__以人为代价的世界杯.html)
 <br/>
 
 - [十一月特辑 || 非必要不做爱？新冠疫情与「亲密」的终结](https://internationalismencorner.github.io/EnCorner/html/十一月特辑__非必要不做爱？新冠疫情与「亲密」的终结.html)
