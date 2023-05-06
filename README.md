@@ -1,6 +1,15 @@
 ### 【国际英语角】公众号（截止2023/3/19）
 <br/>
 
+- [打倒爱：女性主义批判与新的工作意识形态 ‖ 五一特辑](https://internationalismencorner.github.io/EnCorner/html/打倒爱：女性主义批判与新的工作意识形态‖五一特辑.html)
+<br/>
+
+- [“创业性的团结”：社交媒体社群与菲律宾数字平台劳工](https://internationalismencorner.github.io/EnCorner/html/“创业性的团结”：社交媒体社群与菲律宾数字平台劳工.html)
+<br/>
+
+- [再次昂首阔步：安妮·埃尔诺声援反对养老金改革的运动 || 转载](https://internationalismencorner.github.io/EnCorner/html/再次昂首阔步：安妮·埃尔诺声援反对养老金改革的运动__转载.html)
+<br/>
+
 - [“白人女性听着！” || 国际劳动女性节特辑](https://internationalismencorner.github.io/EnCorner/html/“白人女性听着！”__国际劳动女性节特辑.html)
 <br/>
 
