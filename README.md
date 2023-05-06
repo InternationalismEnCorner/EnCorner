@@ -1,6 +1,9 @@
 ### 【国际英语角】公众号（截止2023/3/19）
 <br/>
 
+- [尽管以色列自由主义者抗议政府，也拒绝与巴勒斯坦人团结起来](https://internationalismencorner.github.io/EnCorner/html/尽管以色列自由主义者抗议政府，也拒绝与巴勒斯坦人团结起来.html)
+<br/>
+
 - [打倒爱：女性主义批判与新的工作意识形态 ‖ 五一特辑](https://internationalismencorner.github.io/EnCorner/html/打倒爱：女性主义批判与新的工作意识形态‖五一特辑.html)
 <br/>
 
