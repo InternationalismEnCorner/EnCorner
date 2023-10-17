@@ -1,4 +1,19 @@
-### 【国际英语角】公众号（截止2023/3/19）
+### 【国际英语角】公众号（截止2023/10/17）
+<br/>
+
+- [佩里·安德森：锡安之家（2015）](https://internationalismencorner.github.io/EnCorner/html/佩里·安德森：锡安之家（2015）.html)
+<br/>
+
+- [伊朗的民众抗议和劳工运动：另一个视角](https://internationalismencorner.github.io/EnCorner/html/伊朗的民众抗议和劳工运动：另一个视角.html)
+<br/>
+
+- [泰国的保守派旧势力已经扼杀了民众对变革的强烈要求](https://internationalismencorner.github.io/EnCorner/html/泰国的保守派旧势力已经扼杀了民众对变革的强烈要求.html)
+<br/>
+
+- [赋权的复杂性：尼泊尔人民战争运动中的抗议女性](https://internationalismencorner.github.io/EnCorner/html/赋权的复杂性：尼泊尔人民战争运动中的抗议女性.html)
+<br/>
+
+- [演员们罢工争取免受AI侵害，网飞却在高薪招聘AI岗位](https://internationalismencorner.github.io/EnCorner/html/演员们罢工争取免受AI侵害，网飞却在高薪招聘AI岗位.html)
 <br/>
 
 - [生存与挑战：极端高温下的劳工](https://internationalismencorner.github.io/EnCorner/html/生存与挑战：极端高温下的劳工.html)
