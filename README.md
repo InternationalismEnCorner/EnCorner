@@ -1,4 +1,10 @@
-### 【国际英语角】公众号（截止2023/10/17）
+### 【国际英语角】公众号（截止2023/11/17）
+<br/>
+
+- [没有主权的警察国家？主权和巴勒斯坦的公众主权](https://internationalismencorner.github.io/EnCorner/html/没有主权的警察国家？主权和巴勒斯坦的公众主权.html)
+<br/>
+
+- [埃莉诺·马克思等：女性问题（1886）| 读者译稿](https://internationalismencorner.github.io/EnCorner/html/埃莉诺·马克思等：女性问题（1886）_读者译稿.html)
 <br/>
 
 - [佩里·安德森：锡安之家（2015）](https://internationalismencorner.github.io/EnCorner/html/佩里·安德森：锡安之家（2015）.html)
