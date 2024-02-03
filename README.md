@@ -1,6 +1,30 @@
 ### 【国际英语角】公众号（截止2023/11/17）
 <br/>
 
+- [来领红包封面](https://internationalismencorner.github.io/EnCorner/html/来领红包封面.html)
+<br/>
+
+- [从去病理化到再病理化：间性别病理化的历史 | 读者译稿](https://internationalismencorner.github.io/EnCorner/html/从去病理化到再病理化：间性别病理化的历史_读者译稿.html)
+<br/>
+
+- [转载 || 母性和育儿：孟加拉的性别和民族主义](https://internationalismencorner.github.io/EnCorner/html/转载__母性和育儿：孟加拉的性别和民族主义.html)
+<br/>
+
+- [但你不能阻止春天的到来](https://internationalismencorner.github.io/EnCorner/html/但你不能阻止春天的到来.html)
+<br/>
+
+- [转载 || 安东尼奥·奈格里等：像我们这样的共产主义者](https://internationalismencorner.github.io/EnCorner/html/转载__安东尼奥·奈格里等：像我们这样的共产主义者.html)
+<br/>
+
+- [每天都是阴雨天：乌克兰贫困母亲们的生存与挣扎](https://internationalismencorner.github.io/EnCorner/html/每天都是阴雨天：乌克兰贫困母亲们的生存与挣扎.html)
+<br/>
+
+- [评估在线厌女：社会学和女性主义媒体研究的视角 | 读者译稿](https://internationalismencorner.github.io/EnCorner/html/评估在线厌女：社会学和女性主义媒体研究的视角_读者译稿.html)
+<br/>
+
+- [UAW罢工者取得了一场历史性的、具有变革意义的胜利](https://internationalismencorner.github.io/EnCorner/html/UAW罢工者取得了一场历史性的、具有变革意义的胜利.html)
+<br/>
+
 - [没有主权的警察国家？主权和巴勒斯坦的公众主权](https://internationalismencorner.github.io/EnCorner/html/没有主权的警察国家？主权和巴勒斯坦的公众主权.html)
 <br/>
 
