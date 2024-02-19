@@ -1,6 +1,12 @@
 ### 【国际英语角】公众号（截止2023/11/17）
 <br/>
 
+- [阿列克谢·纳瓦尔尼：“我们的道路从来都不是布满玫瑰的”](https://internationalismencorner.github.io/EnCorner/html/阿列克谢·纳瓦尔尼：“我们的道路从来都不是布满玫瑰的”.html)
+<br/>
+
+- [“千禧一代的独裁者”：新闻自由在布克尔的萨尔瓦多无处容身](https://internationalismencorner.github.io/EnCorner/html/“千禧一代的独裁者”：新闻自由在布克尔的萨尔瓦多无处容身.html)
+<br/>
+
 - [来领红包封面](https://internationalismencorner.github.io/EnCorner/html/来领红包封面.html)
 <br/>
 
