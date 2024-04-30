@@ -1,6 +1,21 @@
 ### 【国际英语角】公众号（截止2023/11/17）
 <br/>
 
+- [为什么TA们要给学生们扣上“反犹分子”的帽子？](https://internationalismencorner.github.io/EnCorner/html/为什么TA们要给学生们扣上“反犹分子”的帽子？.html)
+<br/>
+
+- [抽送 || 上野千鹤子《无薪主妇：以爱为名的剥削》](https://internationalismencorner.github.io/EnCorner/html/抽送__上野千鹤子《无薪主妇：以爱为名的剥削》.html)
+<br/>
+
+- [#说出她的名字：疫情期间南非被杀戮女性的面孔](https://internationalismencorner.github.io/EnCorner/html/%23说出她的名字：疫情期间南非被杀戮女性的面孔.html)
+<br/>
+
+- [从“#阿拉伯之春”到“#占领华尔街”：社交媒体情动公众的构成与叙事结构 | 读者译稿](https://internationalismencorner.github.io/EnCorner/html/从“%23阿拉伯之春”到“%23占领华尔街”：社交媒体情动公众的构成与叙事结构_读者译稿.html)
+<br/>
+
+- [Verónica Gago：女性反对暴力的不服从与日常战争](https://internationalismencorner.github.io/EnCorner/html/VerónicaGago：女性反对暴力的不服从与日常战争.html)
+<br/>
+
 - [阿列克谢·纳瓦尔尼：“我们的道路从来都不是布满玫瑰的”](https://internationalismencorner.github.io/EnCorner/html/阿列克谢·纳瓦尔尼：“我们的道路从来都不是布满玫瑰的”.html)
 <br/>
 
