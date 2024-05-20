@@ -1,4 +1,19 @@
-### 【国际英语角】公众号（截止2023/11/17）
+### 【国际英语角】公众号（截止2024/05/20）
+<br/>
+
+- [粉红清洗与种族异性恋规范：巴勒斯坦酷儿的双重经验 | 517特辑](https://internationalismencorner.github.io/EnCorner/html/粉红清洗与种族异性恋规范：巴勒斯坦酷儿的双重经验_517特辑.html)
+<br/>
+
+- [澳大利亚犹太人对锡安体制说不](https://internationalismencorner.github.io/EnCorner/html/澳大利亚犹太人对锡安体制说不.html)
+<br/>
+
+- [普殊同：反犹主义与纳粹主义（1986）](https://internationalismencorner.github.io/EnCorner/html/普殊同：反犹主义与纳粹主义（1986）.html)
+<br/>
+
+- [转载 || 哥伦比亚大学的“危机”：一份政治经济学草图](https://internationalismencorner.github.io/EnCorner/html/转载__哥伦比亚大学的“危机”：一份政治经济学草图.html)
+<br/>
+
+- [在不养懒人的社会做懒人 | 五一特辑](https://internationalismencorner.github.io/EnCorner/html/在不养懒人的社会做懒人_五一特辑.html)
 <br/>
 
 - [为什么TA们要给学生们扣上“反犹分子”的帽子？](https://internationalismencorner.github.io/EnCorner/html/为什么TA们要给学生们扣上“反犹分子”的帽子？.html)
