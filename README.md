@@ -1,6 +1,51 @@
 ### 【国际英语角】公众号（截止2024/05/20）
 <br/>
 
+- [Mahmoud Khalil的狱中来信](https://internationalismencorner.github.io/EnCorner/html/MahmoudKhalil的狱中来信.html)
+<br/>
+
+- [“在我们所有人的头顶上，都有一块混凝土板”：塞尔维亚的学生抗议与民众动员](https://internationalismencorner.github.io/EnCorner/html/“在我们所有人的头顶上，都有一块混凝土板”：塞尔维亚的学生抗议与民众动员.html)
+<br/>
+
+- [bell hooks | 女性主义：一种变革性的政治](https://internationalismencorner.github.io/EnCorner/html/bellhooks_女性主义：一种变革性的政治.html)
+<br/>
+
+- [岌岌可危的民主：全球权力更迭中格鲁吉亚的选择](https://internationalismencorner.github.io/EnCorner/html/岌岌可危的民主：全球权力更迭中格鲁吉亚的选择.html)
+<br/>
+
+- [推土机政治、炸药政治与罢租运动：法国移民工人的回归权和自主权抗争](https://internationalismencorner.github.io/EnCorner/html/推土机政治、炸药政治与罢租运动：法国移民工人的回归权和自主权抗争.html)
+<br/>
+
+- [新年快乐](https://internationalismencorner.github.io/EnCorner/html/新年快乐.html)
+<br/>
+
+- [牺牲的礼物和债务：库尔德运动中牺牲的后世](https://internationalismencorner.github.io/EnCorner/html/牺牲的礼物和债务：库尔德运动中牺牲的后世.html)
+<br/>
+
+- [Repo](https://internationalismencorner.github.io/EnCorner/html/Repo.html)
+<br/>
+
+- [转载 || 流产药：殖民地女性拒绝生育的政治抵抗史](https://internationalismencorner.github.io/EnCorner/html/转载__流产药：殖民地女性拒绝生育的政治抵抗史.html)
+<br/>
+
+- [“叛乱狗狗”与反抗的人民并肩而行](https://internationalismencorner.github.io/EnCorner/html/“叛乱狗狗”与反抗的人民并肩而行.html)
+<br/>
+
+- [“夺回黑夜”：实习医生被强奸杀害引发印度大规模抗议](https://internationalismencorner.github.io/EnCorner/html/“夺回黑夜”：实习医生被强奸杀害引发印度大规模抗议.html)
+<br/>
+
+- [书讯转载 || 一位晚清同文馆士人如何见证巴黎公社运动？](https://internationalismencorner.github.io/EnCorner/html/书讯转载__一位晚清同文馆士人如何见证巴黎公社运动？.html)
+<br/>
+
+- [学生抗议、国家镇压与左翼力量：孟加拉国配额改革运动的起源和未来](https://internationalismencorner.github.io/EnCorner/html/学生抗议、国家镇压与左翼力量：孟加拉国配额改革运动的起源和未来.html)
+<br/>
+
+- [获得工作，还是从工作中解放？残疾人、自治以及后工作政治](https://internationalismencorner.github.io/EnCorner/html/获得工作，还是从工作中解放？残疾人、自治以及后工作政治.html)
+<br/>
+
+- [跨性别伦理，而非性别意识形态：对教会和性别批判者的反驳 | 读者译稿](https://internationalismencorner.github.io/EnCorner/html/跨性别伦理，而非性别意识形态：对教会和性别批判者的反驳_读者译稿.html)
+<br/>
+
 - [粉红清洗与种族异性恋规范：巴勒斯坦酷儿的双重经验 | 517特辑](https://internationalismencorner.github.io/EnCorner/html/粉红清洗与种族异性恋规范：巴勒斯坦酷儿的双重经验_517特辑.html)
 <br/>
 
