@@ -1,6 +1,9 @@
 ### 【国际英语角】公众号（截止2024/05/20）
 <br/>
 
+- [酷儿：一个来自/属于全球南方的术语 | 517特辑](https://internationalismencorner.github.io/EnCorner/html/酷儿：一个来自_属于全球南方的术语_517特辑.html)
+<br/>
+
 - [Mahmoud Khalil的狱中来信](https://internationalismencorner.github.io/EnCorner/html/MahmoudKhalil的狱中来信.html)
 <br/>
 
